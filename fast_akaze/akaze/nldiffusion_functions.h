@@ -14,6 +14,8 @@
 /* ************************************************************************* */
 // Declaration of functions
 
+#include <opencv2/core.hpp>
+
 namespace cv
 {
 

@@ -6,13 +6,15 @@
  * @author Pablo F. Alcantarilla, Jesus Nuevo
  */
 
-#include "../precomp.hpp"
 #include "AKAZEFeatures.h"
 #include "fed.h"
 #include "nldiffusion_functions.h"
 #include "utils.h"
 
 #include <iostream>
+
+// Taken from opencv2/internal.hpp: IEEE754 constants and macros
+#define  CV_TOGGLE_FLT(x) ((x)^((int)(x) < 0 ? 0x7fffffff : 0))
 
 // Namespaces
 namespace cv

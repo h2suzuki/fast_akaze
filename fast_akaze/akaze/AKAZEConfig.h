@@ -8,6 +8,8 @@
 #ifndef __OPENCV_FEATURES_2D_AKAZE_CONFIG_H__
 #define __OPENCV_FEATURES_2D_AKAZE_CONFIG_H__
 
+#include <opencv2/features2d.hpp>
+
 namespace cv
 {
 /* ************************************************************************* */

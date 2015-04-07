@@ -48,8 +48,10 @@ http://www.robesafe.com/personal/pablo.alcantarilla/papers/Alcantarilla13bmvc.pd
 @author Eugene Khvedchenya <ekhvedchenya@gmail.com>
 */
 
-#include "precomp.hpp"
-#include "kaze/AKAZEFeatures.h"
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+
+#include "AKAZEFeatures.h"
 
 #include <iostream>
 

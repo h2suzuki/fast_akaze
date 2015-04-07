@@ -22,7 +22,9 @@
  * @author Pablo F. Alcantarilla
  */
 
-#include "../precomp.hpp"
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+
 #include "nldiffusion_functions.h"
 #include <iostream>
 

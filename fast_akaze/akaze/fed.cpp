@@ -28,7 +28,8 @@
  * DAGM, 2010
  *
 */
-#include "../precomp.hpp"
+#include <opencv2/core.hpp>
+
 #include "fed.h"
 
 using namespace std;
