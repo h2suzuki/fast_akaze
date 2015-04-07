@@ -5,7 +5,7 @@
 /**
  * @brief This function computes the angle from the vector given by (X Y). From 0 to 2*Pi
  */
-inline float getAngle(float x, float y) {
+inline float getAngleV2(float x, float y) {
 
   if (x >= 0 && y >= 0) {
     return atanf(y / x);
@@ -33,7 +33,7 @@ inline float getAngle(float x, float y) {
  * @param y Y Position
  * @param sig Standard Deviation
  */
-inline float gaussian(float x, float y, float sigma) {
+inline float gaussianV2(float x, float y, float sigma) {
   return expf(-(x*x + y*y) / (2.0f*sigma*sigma));
 }
 
@@ -45,7 +45,7 @@ inline float gaussian(float x, float y, float sigma) {
  * @param width Image width
  * @param height Image height
  */
-inline void checkDescriptorLimits(int &x, int &y, int width, int height) {
+inline void checkDescriptorLimitsV2(int &x, int &y, int width, int height) {
 
   if (x < 0) {
     x = 0;
@@ -70,7 +70,7 @@ inline void checkDescriptorLimits(int &x, int &y, int width, int height) {
  * @param flt Input float
  * @return dst Nearest integer
  */
-inline int fRound(float flt) {
+inline int fRoundV2(float flt) {
   return (int)(flt + 0.5f);
 }
 
@@ -80,7 +80,7 @@ inline int fRound(float flt) {
  * @param flt Exponentiation base
  * @return dst Exponentiation value
  */
-inline int fastpow(int base, int exp) {
+inline int fastpowV2(int base, int exp) {
     int res = 1;
     while(exp > 0) {
         if(exp & 1) {

@@ -48,10 +48,10 @@ using namespace std;
  * @param reordering Reordering flag
  * @param tau The vector with the dynamic step sizes
  */
-int fed_tau_by_process_time(const float& T, const int& M, const float& tau_max,
+int fed_tau_by_process_timeV2(const float& T, const int& M, const float& tau_max,
                             const bool& reordering, std::vector<float>& tau) {
   // All cycles have the same fraction of the stopping time
-  return fed_tau_by_cycle_time(T/(float)M,tau_max,reordering,tau);
+  return fed_tau_by_cycle_timeV2(T/(float)M,tau_max,reordering,tau);
 }
 
 //*************************************************************************************
@@ -67,7 +67,7 @@ int fed_tau_by_process_time(const float& T, const int& M, const float& tau_max,
  * @param reordering Reordering flag
  * @param tau The vector with the dynamic step sizes
  */
-int fed_tau_by_cycle_time(const float& t, const float& tau_max,
+int fed_tau_by_cycle_timeV2(const float& t, const float& tau_max,
                           const bool& reordering, std::vector<float> &tau) {
   int n = 0;          // Number of time steps
   float scale = 0.0;  // Ratio of t we search to maximal t
@@ -77,7 +77,7 @@ int fed_tau_by_cycle_time(const float& t, const float& tau_max,
   scale = 3.0f*t/(tau_max*(float)(n*(n+1)));
 
   // Call internal FED time step creation routine
-  return fed_tau_internal(n,scale,tau_max,reordering,tau);
+  return fed_tau_internalV2(n,scale,tau_max,reordering,tau);
 }
 
 //*************************************************************************************
@@ -93,7 +93,7 @@ int fed_tau_by_cycle_time(const float& t, const float& tau_max,
  * @param reordering Reordering flag
  * @param tau The vector with the dynamic step sizes
  */
-int fed_tau_internal(const int& n, const float& scale, const float& tau_max,
+int fed_tau_internalV2(const int& n, const float& scale, const float& tau_max,
                      const bool& reordering, std::vector<float> &tau) {
   float c = 0.0, d = 0.0;     // Time savers
   vector<float> tauh;    // Helper vector for unsorted taus
@@ -136,7 +136,7 @@ int fed_tau_internal(const int& n, const float& scale, const float& tau_max,
     // Get modulus for permutation
     prime = n + 1;
 
-    while (!fed_is_prime_internal(prime)) {
+    while (!fed_is_prime_internalV2(prime)) {
       prime++;
     }
 
@@ -162,7 +162,7 @@ int fed_tau_internal(const int& n, const float& scale, const float& tau_max,
  * @param number Number to check if it is prime or not
  * @return true if the number is prime
  */
-bool fed_is_prime_internal(const int& number) {
+bool fed_is_prime_internalV2(const int& number) {
   bool is_prime = false;
 
   if (number <= 1) {

@@ -20,29 +20,29 @@ namespace cv
 {
 
 // Gaussian 2D convolution
-void gaussian_2D_convolution(const cv::Mat& src, cv::Mat& dst, int ksize_x, int ksize_y, float sigma);
+void gaussian_2D_convolutionV2(const cv::Mat& src, cv::Mat& dst, int ksize_x, int ksize_y, float sigma);
 
 // Diffusivity functions
-void pm_g1(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k);
-void pm_g2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k);
-void weickert_diffusivity(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k);
-void charbonnier_diffusivity(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k);
+void pm_g1V2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k);
+void pm_g2V2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k);
+void weickert_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k);
+void charbonnier_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k);
 
-float compute_k_percentile(const cv::Mat& img, float perc, float gscale, int nbins, int ksize_x, int ksize_y);
+float compute_k_percentileV2(const cv::Mat& img, float perc, float gscale, int nbins, int ksize_x, int ksize_y);
 
 // Image derivatives
-void compute_scharr_derivatives(const cv::Mat& src, cv::Mat& dst, int xorder, int yorder, int scale);
-void compute_derivative_kernels(cv::OutputArray _kx, cv::OutputArray _ky, int dx, int dy, int scale);
-void image_derivatives_scharr(const cv::Mat& src, cv::Mat& dst, int xorder, int yorder);
+void compute_scharr_derivativesV2(const cv::Mat& src, cv::Mat& dst, int xorder, int yorder, int scale);
+void compute_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _ky, int dx, int dy, int scale);
+void image_derivatives_scharrV2(const cv::Mat& src, cv::Mat& dst, int xorder, int yorder);
 
 // Nonlinear diffusion filtering scalar step
-void nld_step_scalar(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float stepsize);
+void nld_step_scalarV2(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float stepsize);
 
 // For non-maxima suppresion
-bool check_maximum_neighbourhood(const cv::Mat& img, int dsize, float value, int row, int col, bool same_img);
+bool check_maximum_neighbourhoodV2(const cv::Mat& img, int dsize, float value, int row, int col, bool same_img);
 
 // Image downsampling
-void halfsample_image(const cv::Mat& src, cv::Mat& dst);
+void halfsample_imageV2(const cv::Mat& src, cv::Mat& dst);
 
 }
 

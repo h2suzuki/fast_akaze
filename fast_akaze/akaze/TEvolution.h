@@ -13,9 +13,9 @@ namespace cv
 
 /* ************************************************************************* */
 /// KAZE/A-KAZE nonlinear diffusion filtering evolution
-struct TEvolution
+struct TEvolutionV2
 {
-  TEvolution() {
+  TEvolutionV2() {
     etime = 0.0f;
     esigma = 0.0f;
     octave = 0;

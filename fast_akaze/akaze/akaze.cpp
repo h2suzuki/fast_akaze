@@ -50,6 +50,7 @@ http://www.robesafe.com/personal/pablo.alcantarilla/papers/Alcantarilla13bmvc.pd
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
+#include "../features2d_akaze2.hpp"  /* Define AKAZE2; use it instead of <opencv2/features2d.hpp> */
 
 #include "AKAZEFeatures.h"
 
@@ -59,10 +60,10 @@ namespace cv
 {
     using namespace std;
 
-    class AKAZE_Impl : public AKAZE
+    class AKAZE_Impl2 : public AKAZE2
     {
     public:
-        AKAZE_Impl(int _descriptor_type, int _descriptor_size, int _descriptor_channels,
+        AKAZE_Impl2(int _descriptor_type, int _descriptor_size, int _descriptor_channels,
                  float _threshold, int _octaves, int _sublevels, int _diffusivity)
         : descriptor(_descriptor_type)
         , descriptor_channels(_descriptor_channels)
@@ -74,7 +75,7 @@ namespace cv
         {
         }
 
-        virtual ~AKAZE_Impl()
+        virtual ~AKAZE_Impl2()
         {
 
         }
@@ -183,7 +184,7 @@ namespace cv
 
             CV_Assert( ! img1_32.empty() );
 
-            AKAZEOptions options;
+            AKAZEOptionsV2 options;
             options.descriptor = descriptor;
             options.descriptor_channels = descriptor_channels;
             options.descriptor_size = descriptor_size;
@@ -194,7 +195,7 @@ namespace cv
             options.nsublevels = sublevels;
             options.diffusivity = diffusivity;
 
-            AKAZEFeatures impl(options);
+            AKAZEFeaturesV2 impl(options);
             impl.Create_Nonlinear_Scale_Space(img1_32);
 
             if (!useProvidedKeypoints)
@@ -248,12 +249,12 @@ namespace cv
         int diffusivity;
     };
 
-    Ptr<AKAZE> AKAZE::create(int descriptor_type,
+    Ptr<AKAZE2> AKAZE2::create(int descriptor_type,
                              int descriptor_size, int descriptor_channels,
                              float threshold, int octaves,
                              int sublevels, int diffusivity)
     {
-        return makePtr<AKAZE_Impl>(descriptor_type, descriptor_size, descriptor_channels,
+        return makePtr<AKAZE_Impl2>(descriptor_type, descriptor_size, descriptor_channels,
                                    threshold, octaves, sublevels, diffusivity);
     }
 }

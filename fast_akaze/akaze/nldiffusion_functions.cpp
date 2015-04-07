@@ -45,7 +45,7 @@ using namespace std;
  * @param ksize_y Kernel size in Y-direction (vertical)
  * @param sigma Kernel standard deviation
  */
-void gaussian_2D_convolution(const cv::Mat& src, cv::Mat& dst, int ksize_x, int ksize_y, float sigma) {
+void gaussian_2D_convolutionV2(const cv::Mat& src, cv::Mat& dst, int ksize_x, int ksize_y, float sigma) {
 
     int ksize_x_ = 0, ksize_y_ = 0;
 
@@ -80,7 +80,7 @@ void gaussian_2D_convolution(const cv::Mat& src, cv::Mat& dst, int ksize_x, int 
  * A Scheme for Coherence-Enhancing Diffusion Filtering with Optimized Rotation Invariance,
  * Journal of Visual Communication and Image Representation 2002
  */
-void image_derivatives_scharr(const cv::Mat& src, cv::Mat& dst, int xorder, int yorder) {
+void image_derivatives_scharrV2(const cv::Mat& src, cv::Mat& dst, int xorder, int yorder) {
     Scharr(src, dst, CV_32F, xorder, yorder, 1.0, 0, BORDER_DEFAULT);
 }
 
@@ -93,7 +93,7 @@ void image_derivatives_scharr(const cv::Mat& src, cv::Mat& dst, int xorder, int 
  * @param dst Output image
  * @param k Contrast factor parameter
  */
-void pm_g1(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
+void pm_g1V2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
 
   Size sz = Lx.size();
   float inv_k = 1.0f / (k*k);
@@ -120,7 +120,7 @@ void pm_g1(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
  * @param dst Output image
  * @param k Contrast factor parameter
  */
-void pm_g2(const cv::Mat &Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
+void pm_g2V2(const cv::Mat &Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
 
     Size sz = Lx.size();
     dst.create(sz, Lx.type());
@@ -146,7 +146,7 @@ void pm_g2(const cv::Mat &Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
  * Applications of nonlinear diffusion in image processing and computer vision,
  * Proceedings of Algorithmy 2000
  */
-void weickert_diffusivity(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
+void weickert_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
 
   Size sz = Lx.size();
   float inv_k = 1.0f / (k*k);
@@ -179,7 +179,7 @@ void weickert_diffusivity(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, fl
 * Applications of nonlinear diffusion in image processing and computer vision,
 * Proceedings of Algorithmy 2000
 */
-void charbonnier_diffusivity(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
+void charbonnier_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
 
   Size sz = Lx.size();
   float inv_k = 1.0f / (k*k);
@@ -210,7 +210,7 @@ void charbonnier_diffusivity(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst,
  * @param ksize_y Kernel size in Y-direction (vertical) for the Gaussian smoothing kernel
  * @return k contrast factor
  */
-float compute_k_percentile(const cv::Mat& img, float perc, float gscale, int nbins, int ksize_x, int ksize_y) {
+float compute_k_percentileV2(const cv::Mat& img, float perc, float gscale, int nbins, int ksize_x, int ksize_y) {
 
     int nbin = 0, nelements = 0, nthreshold = 0, k = 0;
     float kperc = 0.0, modg = 0.0;
@@ -226,7 +226,7 @@ float compute_k_percentile(const cv::Mat& img, float perc, float gscale, int nbi
     Mat Ly = Mat::zeros(img.rows, img.cols, CV_32F);
 
     // Perform the Gaussian convolution
-    gaussian_2D_convolution(img, gaussian, ksize_x, ksize_y, gscale);
+    gaussian_2D_convolutionV2(img, gaussian, ksize_x, ksize_y, gscale);
 
     // Compute the Gaussian derivatives Lx and Ly
     Scharr(gaussian, Lx, CV_32F, 1, 0, 1, 0, cv::BORDER_DEFAULT);
@@ -293,9 +293,9 @@ float compute_k_percentile(const cv::Mat& img, float perc, float gscale, int nbi
  * @param yorder Derivative order in Y-direction (vertical)
  * @param scale Scale factor for the derivative size
  */
-void compute_scharr_derivatives(const cv::Mat& src, cv::Mat& dst, int xorder, int yorder, int scale) {
+void compute_scharr_derivativesV2(const cv::Mat& src, cv::Mat& dst, int xorder, int yorder, int scale) {
     Mat kx, ky;
-    compute_derivative_kernels(kx, ky, xorder, yorder, scale);
+    compute_derivative_kernelsV2(kx, ky, xorder, yorder, scale);
     sepFilter2D(src, dst, CV_32F, kx, ky);
 }
 
@@ -308,7 +308,7 @@ void compute_scharr_derivatives(const cv::Mat& src, cv::Mat& dst, int xorder, in
  * @param dy Derivative order in Y-direction (vertical)
  * @param scale_ Scale factor or derivative size
  */
-void compute_derivative_kernels(cv::OutputArray _kx, cv::OutputArray _ky, int dx, int dy, int scale) {
+void compute_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _ky, int dx, int dy, int scale) {
 
     int ksize = 3 + 2 * (scale - 1);
 
@@ -343,10 +343,10 @@ void compute_derivative_kernels(cv::OutputArray _kx, cv::OutputArray _ky, int dx
     }
 }
 
-class Nld_Step_Scalar_Invoker : public cv::ParallelLoopBody
+class Nld_Step_Scalar_InvokerV2 : public cv::ParallelLoopBody
 {
 public:
-    Nld_Step_Scalar_Invoker(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float _stepsize)
+    Nld_Step_Scalar_InvokerV2(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float _stepsize)
         : _Ld(&Ld)
         , _c(&c)
         , _Lstep(&Lstep)
@@ -354,7 +354,7 @@ public:
     {
     }
 
-    virtual ~Nld_Step_Scalar_Invoker()
+    virtual ~Nld_Step_Scalar_InvokerV2()
     {
 
     }
@@ -404,9 +404,9 @@ private:
 * The function c is a scalar value that depends on the gradient norm
 * dL_by_ds = d(c dL_by_dx)_by_dx + d(c dL_by_dy)_by_dy
 */
-void nld_step_scalar(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float stepsize) {
+void nld_step_scalarV2(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float stepsize) {
 
-    cv::parallel_for_(cv::Range(1, Lstep.rows - 1), Nld_Step_Scalar_Invoker(Ld, c, Lstep, stepsize), (double)Ld.total()/(1 << 16));
+    cv::parallel_for_(cv::Range(1, Lstep.rows - 1), Nld_Step_Scalar_InvokerV2(Ld, c, Lstep, stepsize), (double)Ld.total()/(1 << 16));
 
     float xneg, xpos, yneg, ypos;
     float* dst = Lstep.ptr<float>(0);
@@ -473,7 +473,7 @@ void nld_step_scalar(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float stepsi
 * @param img Input image to be downsampled
 * @param dst Output image with half of the resolution of the input image
 */
-void halfsample_image(const cv::Mat& src, cv::Mat& dst) {
+void halfsample_imageV2(const cv::Mat& src, cv::Mat& dst) {
 
     // Make sure the destination image is of the right size
     CV_Assert(src.cols / 2 == dst.cols);
@@ -492,7 +492,7 @@ void halfsample_image(const cv::Mat& src, cv::Mat& dst) {
  * @param same_img Flag to indicate if the image value at (x,y) is in the input image
  * @return 1->is maximum, 0->otherwise
  */
-bool check_maximum_neighbourhood(const cv::Mat& img, int dsize, float value, int row, int col, bool same_img) {
+bool check_maximum_neighbourhoodV2(const cv::Mat& img, int dsize, float value, int row, int col, bool same_img) {
 
     bool response = true;
 

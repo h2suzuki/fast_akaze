@@ -14,9 +14,9 @@ namespace cv
 {
 /* ************************************************************************* */
 /// AKAZE configuration options structure
-struct AKAZEOptions {
+struct AKAZEOptionsV2 {
 
-    AKAZEOptions()
+    AKAZEOptionsV2()
         : omax(4)
         , nsublevels(4)
         , img_width(0)

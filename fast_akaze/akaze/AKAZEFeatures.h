@@ -19,12 +19,12 @@ namespace cv
 
 /* ************************************************************************* */
 // AKAZE Class Declaration
-class AKAZEFeatures {
+class AKAZEFeaturesV2 {
 
 private:
 
-  AKAZEOptions options_;                ///< Configuration options for AKAZE
-  std::vector<TEvolution> evolution_;        ///< Vector of nonlinear diffusion evolution
+  AKAZEOptionsV2 options_;                ///< Configuration options for AKAZE
+  std::vector<TEvolutionV2> evolution_;        ///< Vector of nonlinear diffusion evolution
 
   /// FED parameters
   int ncycles_;                  ///< Number of cycles
@@ -40,7 +40,7 @@ private:
 public:
 
   /// Constructor with input arguments
-  AKAZEFeatures(const AKAZEOptions& options);
+  AKAZEFeaturesV2(const AKAZEOptionsV2& options);
 
   /// Scale Space methods
   void Allocate_Memory_Evolution();
@@ -53,12 +53,12 @@ public:
 
   /// Feature description methods
   void Compute_Descriptors(std::vector<cv::KeyPoint>& kpts, cv::Mat& desc);
-  static void Compute_Main_Orientation(cv::KeyPoint& kpt, const std::vector<TEvolution>& evolution_);
+  static void Compute_Main_Orientation(cv::KeyPoint& kpt, const std::vector<TEvolutionV2>& evolution_);
 };
 
 /* ************************************************************************* */
 /// Inline functions
-void generateDescriptorSubsample(cv::Mat& sampleList, cv::Mat& comparisons,
+void generateDescriptorSubsampleV2(cv::Mat& sampleList, cv::Mat& comparisons,
                                  int nbits, int pattern_size, int nchannels);
 
 }

@@ -27,13 +27,13 @@ using namespace std;
  * @param options AKAZEFeatures configuration options
  * @note This constructor allocates memory for the nonlinear scale space
  */
-AKAZEFeatures::AKAZEFeatures(const AKAZEOptions& options) : options_(options) {
+AKAZEFeaturesV2::AKAZEFeaturesV2(const AKAZEOptionsV2& options) : options_(options) {
 
   ncycles_ = 0;
   reordering_ = true;
 
   if (options_.descriptor_size > 0 && options_.descriptor >= AKAZE::DESCRIPTOR_MLDB_UPRIGHT) {
-    generateDescriptorSubsample(descriptorSamples_, descriptorBits_, options_.descriptor_size,
+    generateDescriptorSubsampleV2(descriptorSamples_, descriptorBits_, options_.descriptor_size,
                                 options_.descriptor_pattern_size, options_.descriptor_channels);
   }
 
@@ -44,7 +44,7 @@ AKAZEFeatures::AKAZEFeatures(const AKAZEOptions& options) : options_(options) {
 /**
  * @brief This method allocates the memory for the nonlinear diffusion evolution
  */
-void AKAZEFeatures::Allocate_Memory_Evolution(void) {
+void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
 
   float rfactor = 0.0f;
   int level_height = 0, level_width = 0;
@@ -62,7 +62,7 @@ void AKAZEFeatures::Allocate_Memory_Evolution(void) {
     }
 
     for (int j = 0; j < options_.nsublevels; j++) {
-      TEvolution step;
+      TEvolutionV2 step;
       step.Lx = Mat::zeros(level_height, level_width, CV_32F);
       step.Ly = Mat::zeros(level_height, level_width, CV_32F);
       step.Lxx = Mat::zeros(level_height, level_width, CV_32F);
@@ -72,7 +72,7 @@ void AKAZEFeatures::Allocate_Memory_Evolution(void) {
       step.Ldet = Mat::zeros(level_height, level_width, CV_32F);
       step.Lsmooth = Mat::zeros(level_height, level_width, CV_32F);
       step.esigma = options_.soffset*pow(2.f, (float)(j) / (float)(options_.nsublevels) + i);
-      step.sigma_size = fRound(step.esigma);
+      step.sigma_size = fRoundV2(step.esigma);
       step.etime = 0.5f*(step.esigma*step.esigma);
       step.octave = i;
       step.sublevel = j;
@@ -86,7 +86,7 @@ void AKAZEFeatures::Allocate_Memory_Evolution(void) {
     vector<float> tau;
     float ttime = 0.0f;
     ttime = evolution_[i].etime - evolution_[i - 1].etime;
-    naux = fed_tau_by_process_time(ttime, 1, 0.25f, reordering_, tau);
+    naux = fed_tau_by_process_timeV2(ttime, 1, 0.25f, reordering_, tau);
     nsteps_.push_back(naux);
     tsteps_.push_back(tau);
     ncycles_++;
@@ -99,13 +99,13 @@ void AKAZEFeatures::Allocate_Memory_Evolution(void) {
  * @param img Input image for which the nonlinear scale space needs to be created
  * @return 0 if the nonlinear scale space was created successfully, -1 otherwise
  */
-int AKAZEFeatures::Create_Nonlinear_Scale_Space(const Mat& img)
+int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
 {
   CV_Assert(evolution_.size() > 0);
 
   // Copy the original image to the first level of the evolution
   img.copyTo(evolution_[0].Lt);
-  gaussian_2D_convolution(evolution_[0].Lt, evolution_[0].Lt, 0, 0, options_.soffset);
+  gaussian_2D_convolutionV2(evolution_[0].Lt, evolution_[0].Lt, 0, 0, options_.soffset);
   evolution_[0].Lt.copyTo(evolution_[0].Lsmooth);
 
   // Allocate memory for the flow and step images
@@ -113,13 +113,13 @@ int AKAZEFeatures::Create_Nonlinear_Scale_Space(const Mat& img)
   Mat Lstep = Mat::zeros(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32F);
 
   // First compute the kcontrast factor
-  options_.kcontrast = compute_k_percentile(img, options_.kcontrast_percentile, 1.0f, options_.kcontrast_nbins, 0, 0);
+  options_.kcontrast = compute_k_percentileV2(img, options_.kcontrast_percentile, 1.0f, options_.kcontrast_nbins, 0, 0);
 
   // Now generate the rest of evolution levels
   for (size_t i = 1; i < evolution_.size(); i++) {
 
     if (evolution_[i].octave > evolution_[i - 1].octave) {
-      halfsample_image(evolution_[i - 1].Lt, evolution_[i].Lt);
+      halfsample_imageV2(evolution_[i - 1].Lt, evolution_[i].Lt);
       options_.kcontrast = options_.kcontrast*0.75f;
 
       // Allocate memory for the resized flow and step images
@@ -130,25 +130,25 @@ int AKAZEFeatures::Create_Nonlinear_Scale_Space(const Mat& img)
       evolution_[i - 1].Lt.copyTo(evolution_[i].Lt);
     }
 
-    gaussian_2D_convolution(evolution_[i].Lt, evolution_[i].Lsmooth, 0, 0, 1.0f);
+    gaussian_2D_convolutionV2(evolution_[i].Lt, evolution_[i].Lsmooth, 0, 0, 1.0f);
 
     // Compute the Gaussian derivatives Lx and Ly
-    image_derivatives_scharr(evolution_[i].Lsmooth, evolution_[i].Lx, 1, 0);
-    image_derivatives_scharr(evolution_[i].Lsmooth, evolution_[i].Ly, 0, 1);
+    image_derivatives_scharrV2(evolution_[i].Lsmooth, evolution_[i].Lx, 1, 0);
+    image_derivatives_scharrV2(evolution_[i].Lsmooth, evolution_[i].Ly, 0, 1);
 
     // Compute the conductivity equation
     switch (options_.diffusivity) {
       case KAZE::DIFF_PM_G1:
-        pm_g1(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
+        pm_g1V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
       break;
       case KAZE::DIFF_PM_G2:
-        pm_g2(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
+        pm_g2V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
       break;
       case KAZE::DIFF_WEICKERT:
-        weickert_diffusivity(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
+        weickert_diffusivityV2(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
       break;
       case KAZE::DIFF_CHARBONNIER:
-        charbonnier_diffusivity(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
+        charbonnier_diffusivityV2(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
       break;
       default:
         CV_Error(options_.diffusivity, "Diffusivity is not supported");
@@ -157,7 +157,7 @@ int AKAZEFeatures::Create_Nonlinear_Scale_Space(const Mat& img)
 
     // Perform FED n inner steps
     for (int j = 0; j < nsteps_[i - 1]; j++) {
-      nld_step_scalar(evolution_[i].Lt, Lflow, Lstep, tsteps_[i - 1][j]);
+      nld_step_scalarV2(evolution_[i].Lt, Lflow, Lstep, tsteps_[i - 1][j]);
     }
   }
 
@@ -169,7 +169,7 @@ int AKAZEFeatures::Create_Nonlinear_Scale_Space(const Mat& img)
  * @brief This method selects interesting keypoints through the nonlinear scale space
  * @param kpts Vector of detected keypoints
  */
-void AKAZEFeatures::Feature_Detection(std::vector<KeyPoint>& kpts)
+void AKAZEFeaturesV2::Feature_Detection(std::vector<KeyPoint>& kpts)
 {
   kpts.clear();
   Compute_Determinant_Hessian_Response();
@@ -178,10 +178,10 @@ void AKAZEFeatures::Feature_Detection(std::vector<KeyPoint>& kpts)
 }
 
 /* ************************************************************************* */
-class MultiscaleDerivativesAKAZEInvoker : public ParallelLoopBody
+class MultiscaleDerivativesAKAZEInvokerV2 : public ParallelLoopBody
 {
 public:
-    explicit MultiscaleDerivativesAKAZEInvoker(std::vector<TEvolution>& ev, const AKAZEOptions& opt)
+    explicit MultiscaleDerivativesAKAZEInvokerV2(std::vector<TEvolutionV2>& ev, const AKAZEOptionsV2& opt)
     : evolution_(&ev)
     , options_(opt)
   {
@@ -189,18 +189,18 @@ public:
 
   void operator()(const Range& range) const
   {
-    std::vector<TEvolution>& evolution = *evolution_;
+    std::vector<TEvolutionV2>& evolution = *evolution_;
 
     for (int i = range.start; i < range.end; i++)
     {
-        float ratio = (float)fastpow(2, evolution[i].octave);
-      int sigma_size_ = fRound(evolution[i].esigma * options_.derivative_factor / ratio);
+        float ratio = (float)fastpowV2(2, evolution[i].octave);
+      int sigma_size_ = fRoundV2(evolution[i].esigma * options_.derivative_factor / ratio);
 
-      compute_scharr_derivatives(evolution[i].Lsmooth, evolution[i].Lx, 1, 0, sigma_size_);
-      compute_scharr_derivatives(evolution[i].Lsmooth, evolution[i].Ly, 0, 1, sigma_size_);
-      compute_scharr_derivatives(evolution[i].Lx, evolution[i].Lxx, 1, 0, sigma_size_);
-      compute_scharr_derivatives(evolution[i].Ly, evolution[i].Lyy, 0, 1, sigma_size_);
-      compute_scharr_derivatives(evolution[i].Lx, evolution[i].Lxy, 0, 1, sigma_size_);
+      compute_scharr_derivativesV2(evolution[i].Lsmooth, evolution[i].Lx, 1, 0, sigma_size_);
+      compute_scharr_derivativesV2(evolution[i].Lsmooth, evolution[i].Ly, 0, 1, sigma_size_);
+      compute_scharr_derivativesV2(evolution[i].Lx, evolution[i].Lxx, 1, 0, sigma_size_);
+      compute_scharr_derivativesV2(evolution[i].Ly, evolution[i].Lyy, 0, 1, sigma_size_);
+      compute_scharr_derivativesV2(evolution[i].Lx, evolution[i].Lxy, 0, 1, sigma_size_);
 
       evolution[i].Lx = evolution[i].Lx*((sigma_size_));
       evolution[i].Ly = evolution[i].Ly*((sigma_size_));
@@ -211,18 +211,18 @@ public:
   }
 
 private:
-  std::vector<TEvolution>*  evolution_;
-  AKAZEOptions              options_;
+  std::vector<TEvolutionV2>*  evolution_;
+  AKAZEOptionsV2              options_;
 };
 
 /* ************************************************************************* */
 /**
  * @brief This method computes the multiscale derivatives for the nonlinear scale space
  */
-void AKAZEFeatures::Compute_Multiscale_Derivatives(void)
+void AKAZEFeaturesV2::Compute_Multiscale_Derivatives(void)
 {
   parallel_for_(Range(0, (int)evolution_.size()),
-                                        MultiscaleDerivativesAKAZEInvoker(evolution_, options_));
+                                        MultiscaleDerivativesAKAZEInvokerV2(evolution_, options_));
 }
 
 /* ************************************************************************* */
@@ -230,7 +230,7 @@ void AKAZEFeatures::Compute_Multiscale_Derivatives(void)
  * @brief This method computes the feature detector response for the nonlinear scale space
  * @note We use the Hessian determinant as the feature detector response
  */
-void AKAZEFeatures::Compute_Determinant_Hessian_Response(void) {
+void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
 
   // Firstly compute the multiscale derivatives
   Compute_Multiscale_Derivatives();
@@ -255,7 +255,7 @@ void AKAZEFeatures::Compute_Determinant_Hessian_Response(void) {
  * @brief This method finds extrema in the nonlinear scale space
  * @param kpts Vector of detected keypoints
  */
-void AKAZEFeatures::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
+void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 {
 
   float value = 0.0;
@@ -302,8 +302,8 @@ void AKAZEFeatures::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
           point.size = evolution_[i].esigma*options_.derivative_factor;
           point.octave = (int)evolution_[i].octave;
           point.class_id = (int)i;
-          ratio = (float)fastpow(2, point.octave);
-          sigma_size_ = fRound(point.size / ratio);
+          ratio = (float)fastpowV2(2, point.octave);
+          sigma_size_ = fRoundV2(point.size / ratio);
           point.pt.x = static_cast<float>(jx);
           point.pt.y = static_cast<float>(ix);
 
@@ -332,10 +332,10 @@ void AKAZEFeatures::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
           if (is_extremum == true) {
 
             // Check that the point is under the image limits for the descriptor computation
-            left_x = fRound(point.pt.x - smax*sigma_size_) - 1;
-            right_x = fRound(point.pt.x + smax*sigma_size_) + 1;
-            up_y = fRound(point.pt.y - smax*sigma_size_) - 1;
-            down_y = fRound(point.pt.y + smax*sigma_size_) + 1;
+            left_x = fRoundV2(point.pt.x - smax*sigma_size_) - 1;
+            right_x = fRoundV2(point.pt.x + smax*sigma_size_) + 1;
+            up_y = fRoundV2(point.pt.y - smax*sigma_size_) - 1;
+            down_y = fRoundV2(point.pt.y + smax*sigma_size_) + 1;
 
             if (left_x < 0 || right_x >= evolution_[i].Ldet.cols ||
                 up_y < 0 || down_y >= evolution_[i].Ldet.rows) {
@@ -394,7 +394,7 @@ void AKAZEFeatures::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
  * @brief This method performs subpixel refinement of the detected keypoints
  * @param kpts Vector of detected keypoints
  */
-void AKAZEFeatures::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
+void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
 {
   float Dx = 0.0, Dy = 0.0, ratio = 0.0;
   float Dxx = 0.0, Dyy = 0.0, Dxy = 0.0;
@@ -404,9 +404,9 @@ void AKAZEFeatures::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
   Vec2f dst(0, 0);
 
   for (size_t i = 0; i < kpts.size(); i++) {
-    ratio = (float)fastpow(2, kpts[i].octave);
-    x = fRound(kpts[i].pt.x / ratio);
-    y = fRound(kpts[i].pt.y / ratio);
+    ratio = (float)fastpowV2(2, kpts[i].octave);
+    x = fRoundV2(kpts[i].pt.x / ratio);
+    y = fRoundV2(kpts[i].pt.y / ratio);
 
     // Compute the gradient
     Dx = (0.5f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x + 1)
@@ -440,7 +440,7 @@ void AKAZEFeatures::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
     if (fabs(dst(0)) <= 1.0f && fabs(dst(1)) <= 1.0f) {
         kpts[i].pt.x = x + dst(0);
       kpts[i].pt.y = y + dst(1);
-      int power = fastpow(2, evolution_[kpts[i].class_id].octave);
+      int power = fastpowV2(2, evolution_[kpts[i].class_id].octave);
       kpts[i].pt.x *= power;
       kpts[i].pt.y *= power;
       kpts[i].angle = 0.0;
@@ -458,10 +458,10 @@ void AKAZEFeatures::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
 
 /* ************************************************************************* */
 
-class SURF_Descriptor_Upright_64_Invoker : public ParallelLoopBody
+class SURF_Descriptor_Upright_64_InvokerV2 : public ParallelLoopBody
 {
 public:
-  SURF_Descriptor_Upright_64_Invoker(std::vector<KeyPoint>& kpts, Mat& desc, std::vector<TEvolution>& evolution)
+  SURF_Descriptor_Upright_64_InvokerV2(std::vector<KeyPoint>& kpts, Mat& desc, std::vector<TEvolutionV2>& evolution)
     : keypoints_(&kpts)
     , descriptors_(&desc)
     , evolution_(&evolution)
@@ -481,13 +481,13 @@ public:
 private:
   std::vector<KeyPoint>* keypoints_;
   Mat*                   descriptors_;
-  std::vector<TEvolution>*   evolution_;
+  std::vector<TEvolutionV2>*  evolution_;
 };
 
-class SURF_Descriptor_64_Invoker : public ParallelLoopBody
+class SURF_Descriptor_64_InvokerV2 : public ParallelLoopBody
 {
 public:
-  SURF_Descriptor_64_Invoker(std::vector<KeyPoint>& kpts, Mat& desc, std::vector<TEvolution>& evolution)
+  SURF_Descriptor_64_InvokerV2(std::vector<KeyPoint>& kpts, Mat& desc, std::vector<TEvolutionV2>& evolution)
     : keypoints_(&kpts)
     , descriptors_(&desc)
     , evolution_(&evolution)
@@ -498,7 +498,7 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      AKAZEFeatures::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
+      AKAZEFeaturesV2::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
       Get_SURF_Descriptor_64((*keypoints_)[i], descriptors_->ptr<float>(i));
     }
   }
@@ -508,13 +508,13 @@ public:
 private:
   std::vector<KeyPoint>* keypoints_;
   Mat*                   descriptors_;
-  std::vector<TEvolution>*   evolution_;
+  std::vector<TEvolutionV2>* evolution_;
 };
 
-class MSURF_Upright_Descriptor_64_Invoker : public ParallelLoopBody
+class MSURF_Upright_Descriptor_64_InvokerV2 : public ParallelLoopBody
 {
 public:
-  MSURF_Upright_Descriptor_64_Invoker(std::vector<KeyPoint>& kpts, Mat& desc, std::vector<TEvolution>& evolution)
+  MSURF_Upright_Descriptor_64_InvokerV2(std::vector<KeyPoint>& kpts, Mat& desc, std::vector<TEvolutionV2>& evolution)
     : keypoints_(&kpts)
     , descriptors_(&desc)
     , evolution_(&evolution)
@@ -534,13 +534,13 @@ public:
 private:
   std::vector<KeyPoint>* keypoints_;
   Mat*                   descriptors_;
-  std::vector<TEvolution>*   evolution_;
+  std::vector<TEvolutionV2>* evolution_;
 };
 
-class MSURF_Descriptor_64_Invoker : public ParallelLoopBody
+class MSURF_Descriptor_64_InvokerV2 : public ParallelLoopBody
 {
 public:
-  MSURF_Descriptor_64_Invoker(std::vector<KeyPoint>& kpts, Mat& desc, std::vector<TEvolution>& evolution)
+  MSURF_Descriptor_64_InvokerV2(std::vector<KeyPoint>& kpts, Mat& desc, std::vector<TEvolutionV2>& evolution)
     : keypoints_(&kpts)
     , descriptors_(&desc)
     , evolution_(&evolution)
@@ -551,7 +551,7 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      AKAZEFeatures::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
+      AKAZEFeaturesV2::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
       Get_MSURF_Descriptor_64((*keypoints_)[i], descriptors_->ptr<float>(i));
     }
   }
@@ -561,13 +561,13 @@ public:
 private:
   std::vector<KeyPoint>* keypoints_;
   Mat*                   descriptors_;
-  std::vector<TEvolution>*   evolution_;
+  std::vector<TEvolutionV2>* evolution_;
 };
 
-class Upright_MLDB_Full_Descriptor_Invoker : public ParallelLoopBody
+class Upright_MLDB_Full_Descriptor_InvokerV2 : public ParallelLoopBody
 {
 public:
-  Upright_MLDB_Full_Descriptor_Invoker(std::vector<KeyPoint>& kpts, Mat& desc, std::vector<TEvolution>& evolution, AKAZEOptions& options)
+  Upright_MLDB_Full_Descriptor_InvokerV2(std::vector<KeyPoint>& kpts, Mat& desc, std::vector<TEvolutionV2>& evolution, AKAZEOptionsV2& options)
     : keypoints_(&kpts)
     , descriptors_(&desc)
     , evolution_(&evolution)
@@ -588,17 +588,17 @@ public:
 private:
   std::vector<KeyPoint>* keypoints_;
   Mat*                   descriptors_;
-  std::vector<TEvolution>*   evolution_;
-  AKAZEOptions*              options_;
+  std::vector<TEvolutionV2>* evolution_;
+  AKAZEOptionsV2*            options_;
 };
 
-class Upright_MLDB_Descriptor_Subset_Invoker : public ParallelLoopBody
+class Upright_MLDB_Descriptor_Subset_InvokerV2 : public ParallelLoopBody
 {
 public:
-  Upright_MLDB_Descriptor_Subset_Invoker(std::vector<KeyPoint>& kpts,
+  Upright_MLDB_Descriptor_Subset_InvokerV2(std::vector<KeyPoint>& kpts,
                                          Mat& desc,
-                                         std::vector<TEvolution>& evolution,
-                                         AKAZEOptions& options,
+                                         std::vector<TEvolutionV2>& evolution,
+                                         AKAZEOptionsV2& options,
                                          Mat descriptorSamples,
                                          Mat descriptorBits)
     : keypoints_(&kpts)
@@ -623,17 +623,17 @@ public:
 private:
   std::vector<KeyPoint>* keypoints_;
   Mat*                   descriptors_;
-  std::vector<TEvolution>*   evolution_;
-  AKAZEOptions*              options_;
+  std::vector<TEvolutionV2>* evolution_;
+  AKAZEOptionsV2*            options_;
 
   Mat descriptorSamples_;  // List of positions in the grids to sample LDB bits from.
   Mat descriptorBits_;
 };
 
-class MLDB_Full_Descriptor_Invoker : public ParallelLoopBody
+class MLDB_Full_Descriptor_InvokerV2 : public ParallelLoopBody
 {
 public:
-  MLDB_Full_Descriptor_Invoker(std::vector<KeyPoint>& kpts, Mat& desc, std::vector<TEvolution>& evolution, AKAZEOptions& options)
+  MLDB_Full_Descriptor_InvokerV2(std::vector<KeyPoint>& kpts, Mat& desc, std::vector<TEvolutionV2>& evolution, AKAZEOptionsV2& options)
     : keypoints_(&kpts)
     , descriptors_(&desc)
     , evolution_(&evolution)
@@ -645,7 +645,7 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      AKAZEFeatures::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
+      AKAZEFeaturesV2::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
       Get_MLDB_Full_Descriptor((*keypoints_)[i], descriptors_->ptr<unsigned char>(i));
     }
   }
@@ -659,17 +659,17 @@ public:
 private:
   std::vector<KeyPoint>* keypoints_;
   Mat*                   descriptors_;
-  std::vector<TEvolution>*   evolution_;
-  AKAZEOptions*              options_;
+  std::vector<TEvolutionV2>* evolution_;
+  AKAZEOptionsV2*            options_;
 };
 
-class MLDB_Descriptor_Subset_Invoker : public ParallelLoopBody
+class MLDB_Descriptor_Subset_InvokerV2 : public ParallelLoopBody
 {
 public:
-  MLDB_Descriptor_Subset_Invoker(std::vector<KeyPoint>& kpts,
+  MLDB_Descriptor_Subset_InvokerV2(std::vector<KeyPoint>& kpts,
                                  Mat& desc,
-                                 std::vector<TEvolution>& evolution,
-                                 AKAZEOptions& options,
+                                 std::vector<TEvolutionV2>& evolution,
+                                 AKAZEOptionsV2& options,
                                  Mat descriptorSamples,
                                  Mat descriptorBits)
     : keypoints_(&kpts)
@@ -685,7 +685,7 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      AKAZEFeatures::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
+      AKAZEFeaturesV2::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
       Get_MLDB_Descriptor_Subset((*keypoints_)[i], descriptors_->ptr<unsigned char>(i));
     }
   }
@@ -695,8 +695,8 @@ public:
 private:
   std::vector<KeyPoint>* keypoints_;
   Mat*                   descriptors_;
-  std::vector<TEvolution>*   evolution_;
-  AKAZEOptions*              options_;
+  std::vector<TEvolutionV2>* evolution_;
+  AKAZEOptionsV2*            options_;
 
   Mat descriptorSamples_;  // List of positions in the grids to sample LDB bits from.
   Mat descriptorBits_;
@@ -707,7 +707,7 @@ private:
  * @param kpts Vector of detected keypoints
  * @param desc Matrix to store the descriptors
  */
-void AKAZEFeatures::Compute_Descriptors(std::vector<KeyPoint>& kpts, Mat& desc)
+void AKAZEFeaturesV2::Compute_Descriptors(std::vector<KeyPoint>& kpts, Mat& desc)
 {
   for(size_t i = 0; i < kpts.size(); i++)
   {
@@ -734,28 +734,28 @@ void AKAZEFeatures::Compute_Descriptors(std::vector<KeyPoint>& kpts, Mat& desc)
   {
     case AKAZE::DESCRIPTOR_KAZE_UPRIGHT: // Upright descriptors, not invariant to rotation
     {
-      parallel_for_(Range(0, (int)kpts.size()), MSURF_Upright_Descriptor_64_Invoker(kpts, desc, evolution_));
+      parallel_for_(Range(0, (int)kpts.size()), MSURF_Upright_Descriptor_64_InvokerV2(kpts, desc, evolution_));
     }
     break;
     case AKAZE::DESCRIPTOR_KAZE:
     {
-      parallel_for_(Range(0, (int)kpts.size()), MSURF_Descriptor_64_Invoker(kpts, desc, evolution_));
+      parallel_for_(Range(0, (int)kpts.size()), MSURF_Descriptor_64_InvokerV2(kpts, desc, evolution_));
     }
     break;
     case AKAZE::DESCRIPTOR_MLDB_UPRIGHT: // Upright descriptors, not invariant to rotation
     {
       if (options_.descriptor_size == 0)
-        parallel_for_(Range(0, (int)kpts.size()), Upright_MLDB_Full_Descriptor_Invoker(kpts, desc, evolution_, options_));
+        parallel_for_(Range(0, (int)kpts.size()), Upright_MLDB_Full_Descriptor_InvokerV2(kpts, desc, evolution_, options_));
       else
-        parallel_for_(Range(0, (int)kpts.size()), Upright_MLDB_Descriptor_Subset_Invoker(kpts, desc, evolution_, options_, descriptorSamples_, descriptorBits_));
+        parallel_for_(Range(0, (int)kpts.size()), Upright_MLDB_Descriptor_Subset_InvokerV2(kpts, desc, evolution_, options_, descriptorSamples_, descriptorBits_));
     }
     break;
     case AKAZE::DESCRIPTOR_MLDB:
     {
       if (options_.descriptor_size == 0)
-        parallel_for_(Range(0, (int)kpts.size()), MLDB_Full_Descriptor_Invoker(kpts, desc, evolution_, options_));
+        parallel_for_(Range(0, (int)kpts.size()), MLDB_Full_Descriptor_InvokerV2(kpts, desc, evolution_, options_));
       else
-        parallel_for_(Range(0, (int)kpts.size()), MLDB_Descriptor_Subset_Invoker(kpts, desc, evolution_, options_, descriptorSamples_, descriptorBits_));
+        parallel_for_(Range(0, (int)kpts.size()), MLDB_Descriptor_Subset_InvokerV2(kpts, desc, evolution_, options_, descriptorSamples_, descriptorBits_));
     }
     break;
   }
@@ -768,7 +768,7 @@ void AKAZEFeatures::Compute_Descriptors(std::vector<KeyPoint>& kpts, Mat& desc)
  * @note The orientation is computed using a similar approach as described in the
  * original SURF method. See Bay et al., Speeded Up Robust Features, ECCV 2006
  */
-void AKAZEFeatures::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<TEvolution>& evolution_)
+void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<TEvolutionV2>& evolution_)
 {
     /* ************************************************************************* */
     /// Lookup table for 2d gaussian (sigma = 2.5) where (0,0) is top left and (6,6) is bottom right
@@ -795,7 +795,7 @@ void AKAZEFeatures::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<TE
   // Get the information from the keypoint
   level = kpt.class_id;
   ratio = (float)(1 << evolution_[level].octave);
-  s = fRound(0.5f*kpt.size / ratio);
+  s = fRoundV2(0.5f*kpt.size / ratio);
   xf = kpt.pt.x / ratio;
   yf = kpt.pt.y / ratio;
 
@@ -803,8 +803,8 @@ void AKAZEFeatures::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<TE
   for (int i = -6; i <= 6; ++i) {
     for (int j = -6; j <= 6; ++j) {
       if (i*i + j*j < 36) {
-        iy = fRound(yf + j*s);
-        ix = fRound(xf + i*s);
+        iy = fRoundV2(yf + j*s);
+        ix = fRoundV2(xf + i*s);
 
         gweight = gauss25[id[i + 6]][id[j + 6]];
         resX[idx] = gweight*(*(evolution_[level].Lx.ptr<float>(iy)+ix));
@@ -841,7 +841,7 @@ void AKAZEFeatures::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<TE
     if (sumX*sumX + sumY*sumY > max) {
       // store largest orientation
       max = sumX*sumX + sumY*sumY;
-      kpt.angle = getAngle(sumX, sumY);
+      kpt.angle = getAngleV2(sumX, sumY);
     }
   }
 }
@@ -856,7 +856,7 @@ void AKAZEFeatures::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<TE
  * from Agrawal et al., CenSurE: Center Surround Extremas for Realtime Feature Detection and Matching,
  * ECCV 2008
  */
-void MSURF_Upright_Descriptor_64_Invoker::Get_MSURF_Upright_Descriptor_64(const KeyPoint& kpt, float *desc) const {
+void MSURF_Upright_Descriptor_64_InvokerV2::Get_MSURF_Upright_Descriptor_64(const KeyPoint& kpt, float *desc) const {
 
   float dx = 0.0, dy = 0.0, mdx = 0.0, mdy = 0.0, gauss_s1 = 0.0, gauss_s2 = 0.0;
   float rx = 0.0, ry = 0.0, len = 0.0, xf = 0.0, yf = 0.0, ys = 0.0, xs = 0.0;
@@ -869,7 +869,7 @@ void MSURF_Upright_Descriptor_64_Invoker::Get_MSURF_Upright_Descriptor_64(const 
   // Subregion centers for the 4x4 gaussian weighting
   float cx = -0.5f, cy = 0.5f;
 
-  const std::vector<TEvolution>& evolution = *evolution_;
+  const std::vector<TEvolutionV2>& evolution = *evolution_;
 
   // Set the descriptor size and the sample and pattern sizes
   dsize = 64;
@@ -878,7 +878,7 @@ void MSURF_Upright_Descriptor_64_Invoker::Get_MSURF_Upright_Descriptor_64(const 
 
   // Get the information from the keypoint
   ratio = (float)(1 << kpt.octave);
-  scale = fRound(0.5f*kpt.size / ratio);
+  scale = fRoundV2(0.5f*kpt.size / ratio);
   level = kpt.class_id;
   yf = kpt.pt.y / ratio;
   xf = kpt.pt.x / ratio;
@@ -911,7 +911,7 @@ void MSURF_Upright_Descriptor_64_Invoker::Get_MSURF_Upright_Descriptor_64(const 
           sample_x = l*scale + xf;
 
           //Get the gaussian weighted x and y responses
-          gauss_s1 = gaussian(xs - sample_x, ys - sample_y, 2.50f*scale);
+          gauss_s1 = gaussianV2(xs - sample_x, ys - sample_y, 2.50f*scale);
 
           y1 = (int)(sample_y - .5);
           x1 = (int)(sample_x - .5);
@@ -946,7 +946,7 @@ void MSURF_Upright_Descriptor_64_Invoker::Get_MSURF_Upright_Descriptor_64(const 
       }
 
       // Add the values to the descriptor vector
-      gauss_s2 = gaussian(cx - 2.0f, cy - 2.0f, 1.5f);
+      gauss_s2 = gaussianV2(cx - 2.0f, cy - 2.0f, 1.5f);
 
       desc[dcount++] = dx*gauss_s2;
       desc[dcount++] = dy*gauss_s2;
@@ -979,7 +979,7 @@ void MSURF_Upright_Descriptor_64_Invoker::Get_MSURF_Upright_Descriptor_64(const 
  * from Agrawal et al., CenSurE: Center Surround Extremas for Realtime Feature Detection and Matching,
  * ECCV 2008
  */
-void MSURF_Descriptor_64_Invoker::Get_MSURF_Descriptor_64(const KeyPoint& kpt, float *desc) const {
+void MSURF_Descriptor_64_InvokerV2::Get_MSURF_Descriptor_64(const KeyPoint& kpt, float *desc) const {
 
   float dx = 0.0, dy = 0.0, mdx = 0.0, mdy = 0.0, gauss_s1 = 0.0, gauss_s2 = 0.0;
   float rx = 0.0, ry = 0.0, rrx = 0.0, rry = 0.0, len = 0.0, xf = 0.0, yf = 0.0, ys = 0.0, xs = 0.0;
@@ -992,7 +992,7 @@ void MSURF_Descriptor_64_Invoker::Get_MSURF_Descriptor_64(const KeyPoint& kpt, f
   // Subregion centers for the 4x4 gaussian weighting
   float cx = -0.5f, cy = 0.5f;
 
-  const std::vector<TEvolution>& evolution = *evolution_;
+  const std::vector<TEvolutionV2>& evolution = *evolution_;
 
   // Set the descriptor size and the sample and pattern sizes
   dsize = 64;
@@ -1001,7 +1001,7 @@ void MSURF_Descriptor_64_Invoker::Get_MSURF_Descriptor_64(const KeyPoint& kpt, f
 
   // Get the information from the keypoint
   ratio = (float)(1 << kpt.octave);
-  scale = fRound(0.5f*kpt.size / ratio);
+  scale = fRoundV2(0.5f*kpt.size / ratio);
   angle = kpt.angle;
   level = kpt.class_id;
   yf = kpt.pt.y / ratio;
@@ -1038,13 +1038,13 @@ void MSURF_Descriptor_64_Invoker::Get_MSURF_Descriptor_64(const KeyPoint& kpt, f
           sample_x = xf + (-l*scale*si + k*scale*co);
 
           // Get the gaussian weighted x and y responses
-          gauss_s1 = gaussian(xs - sample_x, ys - sample_y, 2.5f*scale);
+          gauss_s1 = gaussianV2(xs - sample_x, ys - sample_y, 2.5f*scale);
 
-          y1 = fRound(sample_y - 0.5f);
-          x1 = fRound(sample_x - 0.5f);
+          y1 = fRoundV2(sample_y - 0.5f);
+          x1 = fRoundV2(sample_x - 0.5f);
 
-          y2 = fRound(sample_y + 0.5f);
-          x2 = fRound(sample_x + 0.5f);
+          y2 = fRoundV2(sample_y + 0.5f);
+          x2 = fRoundV2(sample_x + 0.5f);
 
           fx = sample_x - x1;
           fy = sample_y - y1;
@@ -1074,7 +1074,7 @@ void MSURF_Descriptor_64_Invoker::Get_MSURF_Descriptor_64(const KeyPoint& kpt, f
       }
 
       // Add the values to the descriptor vector
-      gauss_s2 = gaussian(cx - 2.0f, cy - 2.0f, 1.5f);
+      gauss_s2 = gaussianV2(cx - 2.0f, cy - 2.0f, 1.5f);
       desc[dcount++] = dx*gauss_s2;
       desc[dcount++] = dy*gauss_s2;
       desc[dcount++] = mdx*gauss_s2;
@@ -1103,7 +1103,7 @@ void MSURF_Descriptor_64_Invoker::Get_MSURF_Descriptor_64(const KeyPoint& kpt, f
  * @param kpt Input keypoint
  * @param desc Descriptor vector
  */
-void Upright_MLDB_Full_Descriptor_Invoker::Get_Upright_MLDB_Full_Descriptor(const KeyPoint& kpt, unsigned char *desc) const {
+void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(const KeyPoint& kpt, unsigned char *desc) const {
 
   float di = 0.0, dx = 0.0, dy = 0.0;
   float ri = 0.0, rx = 0.0, ry = 0.0, xf = 0.0, yf = 0.0;
@@ -1112,8 +1112,8 @@ void Upright_MLDB_Full_Descriptor_Invoker::Get_Upright_MLDB_Full_Descriptor(cons
   int level = 0, nsamples = 0, scale = 0;
   int dcount1 = 0, dcount2 = 0;
 
-  const AKAZEOptions & options = *options_;
-  const std::vector<TEvolution>& evolution = *evolution_;
+  const AKAZEOptionsV2 & options = *options_;
+  const std::vector<TEvolutionV2>& evolution = *evolution_;
 
   // Matrices for the M-LDB descriptor
   Mat values_1 = Mat::zeros(4, options.descriptor_channels, CV_32FC1);
@@ -1122,7 +1122,7 @@ void Upright_MLDB_Full_Descriptor_Invoker::Get_Upright_MLDB_Full_Descriptor(cons
 
   // Get the information from the keypoint
   ratio = (float)(1 << kpt.octave);
-  scale = fRound(0.5f*kpt.size / ratio);
+  scale = fRoundV2(0.5f*kpt.size / ratio);
   level = kpt.class_id;
   yf = kpt.pt.y / ratio;
   xf = kpt.pt.x / ratio;
@@ -1143,8 +1143,8 @@ void Upright_MLDB_Full_Descriptor_Invoker::Get_Upright_MLDB_Full_Descriptor(cons
           sample_y = yf + l*scale;
           sample_x = xf + k*scale;
 
-          y1 = fRound(sample_y);
-          x1 = fRound(sample_x);
+          y1 = fRoundV2(sample_y);
+          x1 = fRoundV2(sample_x);
 
           ri = *(evolution[level].Lt.ptr<float>(y1)+x1);
           rx = *(evolution[level].Lx.ptr<float>(y1)+x1);
@@ -1204,8 +1204,8 @@ void Upright_MLDB_Full_Descriptor_Invoker::Get_Upright_MLDB_Full_Descriptor(cons
           sample_y = yf + l*scale;
           sample_x = xf + k*scale;
 
-          y1 = fRound(sample_y);
-          x1 = fRound(sample_x);
+          y1 = fRoundV2(sample_y);
+          x1 = fRoundV2(sample_x);
 
           ri = *(evolution[level].Lt.ptr<float>(y1)+x1);
           rx = *(evolution[level].Lx.ptr<float>(y1)+x1);
@@ -1266,8 +1266,8 @@ void Upright_MLDB_Full_Descriptor_Invoker::Get_Upright_MLDB_Full_Descriptor(cons
           sample_y = yf + l*scale;
           sample_x = xf + k*scale;
 
-          y1 = fRound(sample_y);
-          x1 = fRound(sample_x);
+          y1 = fRoundV2(sample_y);
+          x1 = fRoundV2(sample_x);
 
           ri = *(evolution[level].Lt.ptr<float>(y1)+x1);
           rx = *(evolution[level].Lx.ptr<float>(y1)+x1);
@@ -1313,10 +1313,10 @@ void Upright_MLDB_Full_Descriptor_Invoker::Get_Upright_MLDB_Full_Descriptor(cons
   }
 }
 
-void MLDB_Full_Descriptor_Invoker::MLDB_Fill_Values(float* values, int sample_step, int level,
+void MLDB_Full_Descriptor_InvokerV2::MLDB_Fill_Values(float* values, int sample_step, int level,
                                                     float xf, float yf, float co, float si, float scale) const
 {
-    const std::vector<TEvolution>& evolution = *evolution_;
+    const std::vector<TEvolutionV2>& evolution = *evolution_;
     int pattern_size = options_->descriptor_pattern_size;
     int chan = options_->descriptor_channels;
     int valpos = 0;
@@ -1332,8 +1332,8 @@ void MLDB_Full_Descriptor_Invoker::MLDB_Fill_Values(float* values, int sample_st
                 float sample_y = yf + (l*co * scale + k*si*scale);
                 float sample_x = xf + (-l*si * scale + k*co*scale);
 
-                int y1 = fRound(sample_y);
-                int x1 = fRound(sample_x);
+                int y1 = fRoundV2(sample_y);
+                int x1 = fRoundV2(sample_x);
 
                 float ri = *(evolution[level].Lt.ptr<float>(y1)+x1);
                 di += ri;
@@ -1370,7 +1370,7 @@ void MLDB_Full_Descriptor_Invoker::MLDB_Fill_Values(float* values, int sample_st
         }
 }
 
-void MLDB_Full_Descriptor_Invoker::MLDB_Binary_Comparisons(float* values, unsigned char* desc,
+void MLDB_Full_Descriptor_InvokerV2::MLDB_Binary_Comparisons(float* values, unsigned char* desc,
                                                            int count, int& dpos) const {
     int chan = options_->descriptor_channels;
     int* ivalues = (int*) values;
@@ -1397,7 +1397,7 @@ void MLDB_Full_Descriptor_Invoker::MLDB_Binary_Comparisons(float* values, unsign
  * @param kpt Input keypoint
  * @param desc Descriptor vector
  */
-void MLDB_Full_Descriptor_Invoker::Get_MLDB_Full_Descriptor(const KeyPoint& kpt, unsigned char *desc) const {
+void MLDB_Full_Descriptor_InvokerV2::Get_MLDB_Full_Descriptor(const KeyPoint& kpt, unsigned char *desc) const {
 
   const int max_channels = 3;
   CV_Assert(options_->descriptor_channels <= max_channels);
@@ -1405,7 +1405,7 @@ void MLDB_Full_Descriptor_Invoker::Get_MLDB_Full_Descriptor(const KeyPoint& kpt,
   const double size_mult[3] = {1, 2.0/3.0, 1.0/2.0};
 
   float ratio = (float)(1 << kpt.octave);
-  float scale = (float)fRound(0.5f*kpt.size / ratio);
+  float scale = (float)fRoundV2(0.5f*kpt.size / ratio);
   float xf = kpt.pt.x / ratio;
   float yf = kpt.pt.y / ratio;
   float co = cos(kpt.angle);
@@ -1430,19 +1430,19 @@ void MLDB_Full_Descriptor_Invoker::Get_MLDB_Full_Descriptor(const KeyPoint& kpt,
  * @param kpt Input keypoint
  * @param desc Descriptor vector
  */
-void MLDB_Descriptor_Subset_Invoker::Get_MLDB_Descriptor_Subset(const KeyPoint& kpt, unsigned char *desc) const {
+void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint& kpt, unsigned char *desc) const {
 
   float di = 0.f, dx = 0.f, dy = 0.f;
   float rx = 0.f, ry = 0.f;
   float sample_x = 0.f, sample_y = 0.f;
   int x1 = 0, y1 = 0;
 
-  const AKAZEOptions & options = *options_;
-  const std::vector<TEvolution>& evolution = *evolution_;
+  const AKAZEOptionsV2 & options = *options_;
+  const std::vector<TEvolutionV2>& evolution = *evolution_;
 
   // Get the information from the keypoint
   float ratio = (float)(1 << kpt.octave);
-  int scale = fRound(0.5f*kpt.size / ratio);
+  int scale = fRoundV2(0.5f*kpt.size / ratio);
   float angle = kpt.angle;
   int level = kpt.class_id;
   float yf = kpt.pt.y / ratio;
@@ -1473,8 +1473,8 @@ void MLDB_Descriptor_Subset_Invoker::Get_MLDB_Descriptor_Subset(const KeyPoint& 
         sample_y = yf + (l*scale*co + k*scale*si);
         sample_x = xf + (-l*scale*si + k*scale*co);
 
-        y1 = fRound(sample_y);
-        x1 = fRound(sample_x);
+        y1 = fRoundV2(sample_y);
+        x1 = fRoundV2(sample_x);
 
         di += *(evolution[level].Lt.ptr<float>(y1)+x1);
 
@@ -1524,19 +1524,19 @@ void MLDB_Descriptor_Subset_Invoker::Get_MLDB_Descriptor_Subset(const KeyPoint& 
  * @param kpt Input keypoint
  * @param desc Descriptor vector
  */
-void Upright_MLDB_Descriptor_Subset_Invoker::Get_Upright_MLDB_Descriptor_Subset(const KeyPoint& kpt, unsigned char *desc) const {
+void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subset(const KeyPoint& kpt, unsigned char *desc) const {
 
   float di = 0.0f, dx = 0.0f, dy = 0.0f;
   float rx = 0.0f, ry = 0.0f;
   float sample_x = 0.0f, sample_y = 0.0f;
   int x1 = 0, y1 = 0;
 
-  const AKAZEOptions & options = *options_;
-  const std::vector<TEvolution>& evolution = *evolution_;
+  const AKAZEOptionsV2 & options = *options_;
+  const std::vector<TEvolutionV2>& evolution = *evolution_;
 
   // Get the information from the keypoint
   float ratio = (float)(1 << kpt.octave);
-  int scale = fRound(0.5f*kpt.size / ratio);
+  int scale = fRoundV2(0.5f*kpt.size / ratio);
   int level = kpt.class_id;
   float yf = kpt.pt.y / ratio;
   float xf = kpt.pt.x / ratio;
@@ -1561,8 +1561,8 @@ void Upright_MLDB_Descriptor_Subset_Invoker::Get_Upright_MLDB_Descriptor_Subset(
         sample_y = yf + l*scale;
         sample_x = xf + k*scale;
 
-        y1 = fRound(sample_y);
-        x1 = fRound(sample_x);
+        y1 = fRoundV2(sample_y);
+        x1 = fRoundV2(sample_x);
         di += *(evolution[level].Lt.ptr<float>(y1)+x1);
 
         if (options.descriptor_channels > 1) {
@@ -1616,7 +1616,7 @@ void Upright_MLDB_Descriptor_Subset_Invoker::Get_Upright_MLDB_Descriptor_Subset(
  * @note The function keeps the 18 bits (3-channels by 6 comparisons) of the
  * coarser grid, since it provides the most robust estimations
  */
-void generateDescriptorSubsample(Mat& sampleList, Mat& comparisons, int nbits,
+void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
                                  int pattern_size, int nchannels) {
 
   int ssz = 0;
