@@ -29,6 +29,8 @@ using namespace std;
  */
 AKAZEFeaturesV2::AKAZEFeaturesV2(const AKAZEOptionsV2& options) : options_(options) {
 
+  cout << "AKAZEFeaturesV2 constructor called" << endl;
+
   ncycles_ = 0;
   reordering_ = true;
 
