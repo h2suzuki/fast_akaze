@@ -221,9 +221,9 @@ float compute_k_percentileV2(const cv::Mat& img, float perc, float gscale, int n
     std::vector<int> hist(nbins, 0);
 
     // Create the matrices
-    Mat gaussian = Mat::zeros(img.rows, img.cols, CV_32F);
-    Mat Lx = Mat::zeros(img.rows, img.cols, CV_32F);
-    Mat Ly = Mat::zeros(img.rows, img.cols, CV_32F);
+    Mat gaussian(img.rows, img.cols, CV_32FC1);
+    Mat Lx(img.rows, img.cols, CV_32FC1);
+    Mat Ly(img.rows, img.cols, CV_32FC1);
 
     // Perform the Gaussian convolution
     gaussian_2D_convolutionV2(img, gaussian, ksize_x, ksize_y, gscale);
