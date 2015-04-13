@@ -31,7 +31,6 @@ private:
   std::vector<TEvolutionV2> evolution_;        ///< Vector of nonlinear diffusion evolution
 
   /// FED parameters
-  int ncycles_;                  ///< Number of cycles
   bool reordering_;              ///< Flag for reordering time steps
   std::vector<std::vector<float > > tsteps_;  ///< Vector of FED dynamic time steps
   std::vector<int> nsteps_;      ///< Vector of number of steps per cycle

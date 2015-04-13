@@ -31,7 +31,6 @@ AKAZEFeaturesV2::AKAZEFeaturesV2(const AKAZEOptionsV2& options) : options_(optio
 
   cout << "AKAZEFeaturesV2 constructor called" << endl;
 
-  ncycles_ = 0;
   reordering_ = true;
 
   if (options_.descriptor_size > 0 && options_.descriptor >= AKAZE::DESCRIPTOR_MLDB_UPRIGHT) {
@@ -96,7 +95,6 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
     naux = fed_tau_by_process_timeV2(ttime, 1, 0.25f, reordering_, tau);
     nsteps_.push_back(naux);
     tsteps_.push_back(tau);
-    ncycles_++;
   }
 }
 
