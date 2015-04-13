@@ -85,6 +85,7 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
   // Allocate memory for workspaces
   lflow_.create(options_.img_height, options_.img_width, CV_32FC1);
   lstep_.create(options_.img_height, options_.img_width, CV_32FC1);
+  kpts_aux_.reserve(evolution_.size() * 1024);  // reserve 1K points' space for each evolution step
 
   // Allocate memory for the number of cycles and time steps
   for (size_t i = 1; i < evolution_.size(); i++) {
@@ -270,7 +271,8 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
   int sigma_size_ = 0, left_x = 0, right_x = 0, up_y = 0, down_y = 0;
   bool is_extremum = false, is_repeated = false, is_out = false;
   KeyPoint point;
-  vector<KeyPoint> kpts_aux;
+
+  kpts_aux_.clear();
 
   // Set maximum size
   if (options_.descriptor == AKAZE::DESCRIPTOR_MLDB_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_MLDB) {
@@ -314,15 +316,15 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
           point.pt.y = static_cast<float>(ix);
 
           // Compare response with the same and lower scale
-          for (size_t ik = 0; ik < kpts_aux.size(); ik++) {
+          for (size_t ik = 0; ik < kpts_aux_.size(); ik++) {
 
-            if ((point.class_id - 1) == kpts_aux[ik].class_id ||
-                point.class_id == kpts_aux[ik].class_id) {
-              float distx = point.pt.x*ratio - kpts_aux[ik].pt.x;
-              float disty = point.pt.y*ratio - kpts_aux[ik].pt.y;
+            if ((point.class_id - 1) == kpts_aux_[ik].class_id ||
+                point.class_id == kpts_aux_[ik].class_id) {
+              float distx = point.pt.x*ratio - kpts_aux_[ik].pt.x;
+              float disty = point.pt.y*ratio - kpts_aux_[ik].pt.y;
               dist = distx * distx + disty * disty;
               if (dist <= point.size * point.size) {
-                if (point.response > kpts_aux[ik].response) {
+                if (point.response > kpts_aux_[ik].response) {
                   id_repeated = (int)ik;
                   is_repeated = true;
                 }
@@ -352,13 +354,13 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
               if (is_repeated == false) {
                 point.pt.x *= ratio;
                 point.pt.y *= ratio;
-                kpts_aux.push_back(point);
+                kpts_aux_.push_back(point);
                 npoints++;
               }
               else {
                 point.pt.x *= ratio;
                 point.pt.y *= ratio;
-                kpts_aux[id_repeated] = point;
+                kpts_aux_[id_repeated] = point;
               }
             } // if is_out
           } //if is_extremum
@@ -370,19 +372,19 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
   } // for i
 
   // Now filter points with the upper scale level
-  for (size_t i = 0; i < kpts_aux.size(); i++) {
+  for (size_t i = 0; i < kpts_aux_.size(); i++) {
 
     is_repeated = false;
-    const KeyPoint& pt = kpts_aux[i];
-    for (size_t j = i + 1; j < kpts_aux.size(); j++) {
+    const KeyPoint& pt = kpts_aux_[i];
+    for (size_t j = i + 1; j < kpts_aux_.size(); j++) {
 
       // Compare response with the upper scale
-      if ((pt.class_id + 1) == kpts_aux[j].class_id) {
-        float distx = pt.pt.x - kpts_aux[j].pt.x;
-        float disty = pt.pt.y - kpts_aux[j].pt.y;
+      if ((pt.class_id + 1) == kpts_aux_[j].class_id) {
+        float distx = pt.pt.x - kpts_aux_[j].pt.x;
+        float disty = pt.pt.y - kpts_aux_[j].pt.y;
         dist = distx * distx + disty * disty;
         if (dist <= pt.size * pt.size) {
-          if (pt.response < kpts_aux[j].response) {
+          if (pt.response < kpts_aux_[j].response) {
             is_repeated = true;
             break;
           }
