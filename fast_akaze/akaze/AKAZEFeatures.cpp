@@ -87,13 +87,10 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
   kpts_aux_.reserve(evolution_.size() * 1024);  // reserve 1K points' space for each evolution step
 
   // Allocate memory for the number of cycles and time steps
+  tsteps_.resize(evolution_.size() - 1);
   for (size_t i = 1; i < evolution_.size(); i++) {
-    int naux = 0;
-    vector<float> tau;
-    float ttime = 0.0f;
-    ttime = evolution_[i].etime - evolution_[i - 1].etime;
-    naux = fed_tau_by_process_timeV2(ttime, 1, 0.25f, reordering_, tau);
-    tsteps_.push_back(tau);
+    fed_tau_by_process_timeV2(evolution_[i].etime - evolution_[i - 1].etime,
+                              1, 0.25f, reordering_, tsteps_[i - 1]);
   }
 }
 
