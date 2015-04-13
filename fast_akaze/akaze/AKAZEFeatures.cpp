@@ -70,7 +70,7 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       step.Lxx.create(level_height, level_width, CV_32FC1);
       step.Lxy.create(level_height, level_width, CV_32FC1);
       step.Lyy.create(level_height, level_width, CV_32FC1);
-      step.esigma = options_.soffset*pow(2.f, (float)(j) / (float)(options_.nsublevels) + i);
+      step.esigma = options_.soffset*pow(2.f, (float)j / options_.nsublevels + i);
       step.sigma_size = fRoundV2(step.esigma);
       step.etime = 0.5f*(step.esigma*step.esigma);
       step.octave = i;
