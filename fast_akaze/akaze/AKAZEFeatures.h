@@ -41,6 +41,9 @@ private:
   cv::Mat descriptorBits_;
   cv::Mat bitMask_;
 
+  /// Preallocated temporary variables
+  cv::Mat lflow_, lstep_;
+
 public:
 
   /// Constructor with input arguments

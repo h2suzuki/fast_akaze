@@ -82,6 +82,10 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
     }
   }
 
+  // Allocate memory for workspaces
+  lflow_.create(options_.img_height, options_.img_width, CV_32FC1);
+  lstep_.create(options_.img_height, options_.img_width, CV_32FC1);
+
   // Allocate memory for the number of cycles and time steps
   for (size_t i = 1; i < evolution_.size(); i++) {
     int naux = 0;
@@ -110,9 +114,9 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
   gaussian_2D_convolutionV2(evolution_[0].Lt, evolution_[0].Lt, 0, 0, options_.soffset);
   evolution_[0].Lt.copyTo(evolution_[0].Lsmooth);
 
-  // Allocate memory for the flow and step images
-  Mat Lflow(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1);
-  Mat Lstep(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1);
+  // Prepare the flow and step images
+  Mat Lflow(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lflow_.data);
+  Mat Lstep(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lstep_.data);
 
   // First compute the kcontrast factor
   options_.kcontrast = compute_k_percentileV2(img, options_.kcontrast_percentile, 1.0f, options_.kcontrast_nbins, 0, 0);
@@ -124,9 +128,9 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
       halfsample_imageV2(evolution_[i - 1].Lt, evolution_[i].Lt);
       options_.kcontrast = options_.kcontrast*0.75f;
 
-      // Allocate memory for the resized flow and step images
-      Lflow.create(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1);
-      Lstep.create(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1);
+      // Resize the flow and step images to fit Lt
+      Lflow = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, lflow_.data);
+      Lstep = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, lstep_.data);
     }
     else {
       evolution_[i - 1].Lt.copyTo(evolution_[i].Lt);
