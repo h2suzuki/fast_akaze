@@ -93,7 +93,6 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
     float ttime = 0.0f;
     ttime = evolution_[i].etime - evolution_[i - 1].etime;
     naux = fed_tau_by_process_timeV2(ttime, 1, 0.25f, reordering_, tau);
-    nsteps_.push_back(naux);
     tsteps_.push_back(tau);
   }
 }
@@ -161,8 +160,9 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
     }
 
     // Perform FED n inner steps
-    for (int j = 0; j < nsteps_[i - 1]; j++) {
-      nld_step_scalarV2(evolution_[i].Lt, Lflow, Lstep, tsteps_[i - 1][j]);
+    std::vector<float> & tsteps = tsteps_[i - 1];
+    for (int j = 0; j < tsteps.size(); j++) {
+      nld_step_scalarV2(evolution_[i].Lt, Lflow, Lstep, tsteps[j]);
     }
   }
 
