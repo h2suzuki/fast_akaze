@@ -67,6 +67,7 @@ int fed_tau_by_process_timeV2(const float& T, const int& M, const float& tau_max
  * @param reordering Reordering flag
  * @param tau The vector with the dynamic step sizes
  */
+inline
 int fed_tau_by_cycle_timeV2(const float& t, const float& tau_max,
                           const bool& reordering, std::vector<float> &tau) {
   int n = 0;          // Number of time steps
@@ -93,6 +94,7 @@ int fed_tau_by_cycle_timeV2(const float& t, const float& tau_max,
  * @param reordering Reordering flag
  * @param tau The vector with the dynamic step sizes
  */
+inline
 int fed_tau_internalV2(const int& n, const float& scale, const float& tau_max,
                      const bool& reordering, std::vector<float> &tau) {
   float c = 0.0, d = 0.0;     // Time savers
@@ -162,6 +164,7 @@ int fed_tau_internalV2(const int& n, const float& scale, const float& tau_max,
  * @param number Number to check if it is prime or not
  * @return true if the number is prime
  */
+inline
 bool fed_is_prime_internalV2(const int& number) {
   bool is_prime = false;
 

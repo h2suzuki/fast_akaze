@@ -795,6 +795,7 @@ void AKAZEFeaturesV2::Compute_Descriptors(std::vector<KeyPoint>& kpts, Mat& desc
  * @note The orientation is computed using a similar approach as described in the
  * original SURF method. See Bay et al., Speeded Up Robust Features, ECCV 2006
  */
+inline
 void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<TEvolutionV2>& evolution_)
 {
     /* ************************************************************************* */
