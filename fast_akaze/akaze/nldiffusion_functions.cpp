@@ -301,21 +301,25 @@ void compute_scharr_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _k
     float w = 10.0f / 3.0f;
     float norm = 1.0f / (2.0f*scale*(w + 2.0f));
 
-    for (int k = 0; k < 2; k++) {
-        Mat* kernel = k == 0 ? &kx : &ky;
-        int order = k == 0 ? dx : dy;
-        std::vector<float> kerI(ksize, 0.0f);
+    std::vector<float> kerI(ksize, 0.0f);
 
-        if (order == 0) {
-            kerI[0] = norm, kerI[ksize / 2] = w*norm, kerI[ksize - 1] = norm;
-        }
-        else if (order == 1) {
-            kerI[0] = -1, kerI[ksize / 2] = 0, kerI[ksize - 1] = 1;
-        }
-
-        Mat temp(kernel->rows, kernel->cols, CV_32F, &kerI[0]);
-        temp.copyTo(*kernel);
+    if (dx == 0) {
+        kerI[0] = norm, kerI[ksize / 2] = w*norm, kerI[ksize - 1] = norm;
     }
+    else if (dx == 1) {
+        kerI[0] = -1, kerI[ksize / 2] = 0, kerI[ksize - 1] = 1;
+    }
+    Mat(kx.rows, kx.cols, CV_32F, &kerI[0]).copyTo(kx);
+
+    kerI.assign(ksize, 0.0f);
+
+    if (dy == 0) {
+        kerI[0] = norm, kerI[ksize / 2] = w*norm, kerI[ksize - 1] = norm;
+    }
+    else if (dy == 1) {
+        kerI[0] = -1, kerI[ksize / 2] = 0, kerI[ksize - 1] = 1;
+    }
+    Mat(ky.rows, ky.cols, CV_32F, &kerI[0]).copyTo(ky);
 }
 
 class Nld_Step_Scalar_InvokerV2 : public cv::ParallelLoopBody
