@@ -96,18 +96,17 @@ void image_derivatives_scharrV2(const cv::Mat& src, cv::Mat& dst, int xorder, in
  */
 void pm_g1V2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
 
-  Size sz = Lx.size();
-  float inv_k = 1.0f / (k*k);
-  for (int y = 0; y < sz.height; y++) {
+  // Compute: dst = exp((Lx.mul(Lx) + Ly.mul(Ly)) / (-k * k))
 
-    const float* Lx_row = Lx.ptr<float>(y);
-    const float* Ly_row = Ly.ptr<float>(y);
-    float* dst_row = dst.ptr<float>(y);
+  const float neg_inv_k2 = -1.0f / (k*k);
 
-    for (int x = 0; x < sz.width; x++) {
-      dst_row[x] = (-inv_k*(Lx_row[x]*Lx_row[x] + Ly_row[x]*Ly_row[x]));
-    }
-  }
+  const int total = Lx.rows * Lx.cols;
+  const float* lx = Lx.ptr<float>(0);
+  const float* ly = Ly.ptr<float>(0);
+  float* d = dst.ptr<float>(0);
+
+  for (int i = 0; i < total; i++)
+    d[i] = neg_inv_k2 * (lx[i]*lx[i] + ly[i]*ly[i]);
 
   exp(dst, dst);
 }
@@ -123,19 +122,19 @@ void pm_g1V2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
  */
 void pm_g2V2(const cv::Mat &Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
 
-    Size sz = Lx.size();
-    dst.create(sz, Lx.type());
-    float k2inv = 1.0f / (k * k);
+  // Compute: dst = 1.0f / (1.0f + ((Lx.mul(Lx) + Ly.mul(Ly)) / (k * k)) );
 
-    for(int y = 0; y < sz.height; y++) {
-        const float *Lx_row = Lx.ptr<float>(y);
-        const float *Ly_row = Ly.ptr<float>(y);
-        float* dst_row = dst.ptr<float>(y);
-        for(int x = 0; x < sz.width; x++) {
-            dst_row[x] = 1.0f / (1.0f + ((Lx_row[x] * Lx_row[x] + Ly_row[x] * Ly_row[x]) * k2inv));
-        }
-    }
+  const float inv_k2 = 1.0f / (k * k);
+
+  const int total = Lx.rows * Lx.cols;
+  const float* lx = Lx.ptr<float>(0);
+  const float* ly = Ly.ptr<float>(0);
+  float* d = dst.ptr<float>(0);
+
+  for (int i = 0; i < total; i++)
+    d[i] = 1.0f / (1.0f + ((lx[i] * lx[i] + ly[i] * ly[i]) * inv_k2));
 }
+
 /* ************************************************************************* */
 /**
  * @brief This function computes Weickert conductivity coefficient gw
@@ -149,22 +148,24 @@ void pm_g2V2(const cv::Mat &Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
  */
 void weickert_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
 
-  Size sz = Lx.size();
-  float inv_k = 1.0f / (k*k);
-  for (int y = 0; y < sz.height; y++) {
+  // Compute: dst = 1.0f - exp(-3.315f / ((Lx.mul(Lx) + Ly.mul(Ly)) / (k * k))^4)
 
-    const float* Lx_row = Lx.ptr<float>(y);
-    const float* Ly_row = Ly.ptr<float>(y);
-    float* dst_row = dst.ptr<float>(y);
+  const float inv_k2 = 1.0f / (k * k);
 
-    for (int x = 0; x < sz.width; x++) {
-      float dL = inv_k*(Lx_row[x]*Lx_row[x] + Ly_row[x]*Ly_row[x]);
-      dst_row[x] = -3.315f/(dL*dL*dL*dL);
-    }
+  const int total = Lx.rows * Lx.cols;
+  const float* lx = Lx.ptr<float>(0);
+  const float* ly = Ly.ptr<float>(0);
+  float* d = dst.ptr<float>(0);
+
+  for (int i = 0; i < total; i++) {
+    float dL = inv_k2 * (lx[i] * lx[i] + ly[i] * ly[i]);
+    d[i] = -3.315f / (dL*dL*dL*dL);
   }
 
   exp(dst, dst);
-  dst = 1.0 - dst;
+
+  for (int i = 0; i < total; i++)
+    d[i] = 1.0f - d[i];
 }
 
 
@@ -182,19 +183,17 @@ void weickert_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, 
 */
 void charbonnier_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
 
-  Size sz = Lx.size();
-  float inv_k = 1.0f / (k*k);
-  for (int y = 0; y < sz.height; y++) {
+  // Compute: dst = 1.0f / sqrt(1.0f + (Lx.mul(Lx) + Ly.mul(Ly)) / (k * k))
 
-    const float* Lx_row = Lx.ptr<float>(y);
-    const float* Ly_row = Ly.ptr<float>(y);
-    float* dst_row = dst.ptr<float>(y);
+  const float inv_k2 = 1.0f / (k * k);
 
-    for (int x = 0; x < sz.width; x++) {
-      float den = sqrt(1.0f+inv_k*(Lx_row[x]*Lx_row[x] + Ly_row[x]*Ly_row[x]));
-      dst_row[x] = 1.0f / den;
-    }
-  }
+  const int total = Lx.rows * Lx.cols;
+  const float* lx = Lx.ptr<float>(0);
+  const float* ly = Ly.ptr<float>(0);
+  float* d = dst.ptr<float>(0);
+
+  for (int i = 0; i < total; i++)
+    d[i] = 1.0f / sqrtf(1.0f + inv_k2 * (lx[i]*lx[i] + ly[i]*ly[i]));
 }
 
 
