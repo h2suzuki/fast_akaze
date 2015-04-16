@@ -52,16 +52,11 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
   CV_Assert(options_.img_height > 2 && options_.img_width > 2);  // The size of modgs_ must be positive
 
   // Allocate the dimension of the matrices for the evolution
-  for (int i = 0, power = 1; i <= options_.omax - 1; i++, power *= 2) {
-    float rfactor = 1.0f / power;
-    int level_height = (int)(options_.img_height*rfactor);
-    int level_width = (int)(options_.img_width*rfactor);
+  int level_height = options_.img_height;
+  int level_width = options_.img_width;
+  int power = 1;
 
-    // Smallest possible octave and allow one scale if the image is small
-    if ((level_width < 80 || level_height < 40) && i != 0) {
-      options_.omax = i;
-      break;
-    }
+  for (int i = 0; i < options_.omax; i++) {
 
     for (int j = 0; j < options_.nsublevels; j++) {
       TEvolutionV2 step;
@@ -85,6 +80,16 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       compute_scharr_derivative_kernelsV2(step.DyKx, step.DyKy, 0, 1, step.sigma_size);
 
       evolution_.push_back(step);
+    }
+
+    power <<= 1;
+    level_height >>= 1;
+    level_width >>= 1;
+
+    // The next octave becomes too small
+    if (level_width < 80 || level_height < 40) {
+      options_.omax = i + 1;
+      break;
     }
   }
 
