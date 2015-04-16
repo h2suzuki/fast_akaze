@@ -43,6 +43,7 @@ private:
   cv::Mat gray_;
   cv::Mat lflow_, lstep_;
   std::vector<int> histgram_;
+  std::vector<float> modgs_;
   std::vector<cv::KeyPoint> kpts_aux_;
 
 public:
