@@ -11,6 +11,7 @@
 #include "nldiffusion_functions.h"
 #include "utils.h"
 
+#include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
 #include <iostream>
