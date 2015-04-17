@@ -1,6 +1,9 @@
 #ifndef __OPENCV_FEATURES_2D_KAZE_UTILS_H__
 #define __OPENCV_FEATURES_2D_KAZE_UTILS_H__
 
+#include <opencv2/core/cvdef.h>
+#include <cmath>
+
 /* ************************************************************************* */
 /**
  * @brief This function computes the angle from the vector given by (X Y). From 0 to 2*Pi
