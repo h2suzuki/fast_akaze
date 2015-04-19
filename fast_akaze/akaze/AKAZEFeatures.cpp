@@ -347,7 +347,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
           bool is_extremum = true;
 
           float ratio = evolution_[i].octave_ratio;
-          sigma_size_ = fRoundV2(point.size / ratio);
+          sigma_size_ = evolution_[i].sigma_size;
 
           // Compare response with the same and lower scale
           for (int ik = 0; ik < (int)kpts_aux_.size(); ik++) {
