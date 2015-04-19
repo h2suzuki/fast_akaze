@@ -330,15 +330,14 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
         const float value = curr[jx];
 
         // Filter the points with the detector threshold
-        if (value > options_.dthreshold && value >= options_.min_dthreshold &&
-            value > curr[jx-1] &&
-            value > curr[jx+1] &&
-            value > prev[jx-1] &&
-            value > prev[jx] &&
-            value > prev[jx+1] &&
-            value > next[jx-1] &&
-            value > next[jx] &&
-            value > next[jx+1]) {
+        if (value <= options_.dthreshold || value < options_.min_dthreshold)
+          continue;
+        if (value <= curr[jx-1] || value <= curr[jx+1])
+          continue;
+        if (value <= prev[jx-1] || value <= prev[jx] || value <= prev[jx+1])
+          continue;
+        if (value <= next[jx-1] || value <= next[jx] || value <= next[jx+1])
+          continue;
 
           is_extremum = true;
           point.response = fabs(value);
@@ -399,7 +398,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
               }
             } // if is_out
           } //if is_extremum
-        }
+
       } // for jx
       prev = curr;
       curr = next;
