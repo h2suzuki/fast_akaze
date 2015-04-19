@@ -344,9 +344,6 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
                         /* octave */ evolution_[i].octave,
                         /* class_id */ i);
 
-          bool is_repeated = false;
-          int id_repeated = 0;
-
           // Compare response with the same and lower scale
           for (int ik = 0; ik < (int)kpts_aux_.size(); ik++) {
 
@@ -357,23 +354,14 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
               float dist = distx * distx + disty * disty;
               if (dist <= point.size * point.size) {
                 if (point.response > kpts_aux_[ik].response) {
-                  id_repeated = (int)ik;
-                  is_repeated = true;
+                  kpts_aux_[ik] = point;
                 }
-                else {
-                  goto next_point;
-                }
-                break;
+                goto next_point;
               }
             }
           }
 
-          if (is_repeated == false) {
-            kpts_aux_.push_back(point);
-          }
-          else {
-            kpts_aux_[id_repeated] = point;
-          }
+          kpts_aux_.push_back(point);
 
 next_point:;
 
@@ -387,7 +375,6 @@ next_point:;
   // Now filter points with the upper scale level
   for (size_t i = 0; i < kpts_aux_.size(); i++) {
 
-    bool is_repeated = false;
     const KeyPoint& pt = kpts_aux_[i];
     for (size_t j = i + 1; j < kpts_aux_.size(); j++) {
 
@@ -398,15 +385,15 @@ next_point:;
         float dist = distx * distx + disty * disty;
         if (dist <= pt.size * pt.size) {
           if (pt.response < kpts_aux_[j].response) {
-            is_repeated = true;
-            break;
+            goto next_point2; // stronger response found
           }
         }
       }
     }
 
-    if (is_repeated == false)
-      kpts.push_back(pt);
+    kpts.push_back(pt);
+
+next_point2:;
   }
 }
 
