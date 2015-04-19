@@ -316,7 +316,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
     smax = 12.0f*sqrtf(2.0f);
   }
 
-  for (size_t i = 0; i < evolution_.size(); i++) {
+  for (int i = 0; i < (int)evolution_.size(); i++) {
     float* prev = evolution_[i].Ldet.ptr<float>(0);
     float* curr = evolution_[i].Ldet.ptr<float>(1);
     for (int ix = 1; ix < evolution_[i].Ldet.rows - 1; ix++) {
@@ -350,7 +350,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
           point.pt.y = static_cast<float>(ix);
 
           // Compare response with the same and lower scale
-          for (size_t ik = 0; ik < kpts_aux_.size(); ik++) {
+          for (int ik = 0; ik < (int)kpts_aux_.size(); ik++) {
 
             if ((point.class_id - 1) == kpts_aux_[ik].class_id ||
                 point.class_id == kpts_aux_[ik].class_id) {
