@@ -302,7 +302,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 
   int npoints = 0, id_repeated = 0;
   int sigma_size_ = 0;
-  bool is_extremum = false, is_repeated = false, is_out = false;
+  bool is_repeated = false, is_out = false;
 
   kpts_aux_.clear();
 
@@ -322,7 +322,6 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
       float* next = evolution_[i].Ldet.ptr<float>(ix + 1);
 
       for (int jx = 1; jx < evolution_[i].Ldet.cols - 1; jx++) {
-        is_extremum = false;
         is_repeated = false;
         is_out = false;
 
@@ -346,7 +345,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
                         /* octave */ evolution_[i].octave,
                         /* class_id */ i);
 
-          is_extremum = true;
+          bool is_extremum = true;
 
           float ratio = evolution_[i].octave_ratio;
           sigma_size_ = fRoundV2(point.size / ratio);
