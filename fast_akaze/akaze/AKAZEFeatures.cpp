@@ -300,7 +300,6 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
 void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 {
 
-  float dist = 0.0, ratio = 0.0, smax = 0.0;
   int npoints = 0, id_repeated = 0;
   int sigma_size_ = 0, left_x = 0, right_x = 0, up_y = 0, down_y = 0;
   bool is_extremum = false, is_repeated = false, is_out = false;
@@ -308,6 +307,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
   kpts_aux_.clear();
 
   // Set maximum size
+  float smax = 0.0;
   if (options_.descriptor == AKAZE::DESCRIPTOR_MLDB_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_MLDB) {
     smax = 10.0f*sqrtf(2.0f);
   }
@@ -348,7 +348,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 
           is_extremum = true;
 
-          ratio = evolution_[i].octave_ratio;
+          float ratio = evolution_[i].octave_ratio;
           sigma_size_ = fRoundV2(point.size / ratio);
 
           // Compare response with the same and lower scale
@@ -358,7 +358,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
                 point.class_id == kpts_aux_[ik].class_id) {
               float distx = point.pt.x*ratio - kpts_aux_[ik].pt.x;
               float disty = point.pt.y*ratio - kpts_aux_[ik].pt.y;
-              dist = distx * distx + disty * disty;
+              float dist = distx * distx + disty * disty;
               if (dist <= point.size * point.size) {
                 if (point.response > kpts_aux_[ik].response) {
                   id_repeated = (int)ik;
@@ -418,7 +418,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
       if ((pt.class_id + 1) == kpts_aux_[j].class_id) {
         float distx = pt.pt.x - kpts_aux_[j].pt.x;
         float disty = pt.pt.y - kpts_aux_[j].pt.y;
-        dist = distx * distx + disty * disty;
+        float dist = distx * distx + disty * disty;
         if (dist <= pt.size * pt.size) {
           if (pt.response < kpts_aux_[j].response) {
             is_repeated = true;
