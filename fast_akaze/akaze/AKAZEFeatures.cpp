@@ -310,6 +310,10 @@ bool find_neighbor_point(const KeyPoint &p, const vector<KeyPoint> &v, const int
     const int sz = (int)v.size();
 
     for (int i = offset; i < sz; i++) {
+
+        if (v[i].class_id == -1) // Skip a deleted point
+            continue;
+
         float dx = p.pt.x - v[i].pt.x;
         float dy = p.pt.y - v[i].pt.y;
         if (dx * dx + dy * dy <= p.size * p.size) {
@@ -386,7 +390,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
         // Compare response with the lower scale
         if (i > 0 && find_neighbor_point(point, kpts_aux_[i - 1], 0, ik)) {
           if (point.response > kpts_aux_[i - 1][ik].response) {
-            kpts_aux_[i - 1].erase(std::begin(kpts_aux_[i - 1]) + ik);
+            kpts_aux_[i - 1][ik].class_id = -1;  // mark it as deleted.
             kpts_aux_[i].push_back(point);
           }
           continue;
@@ -406,6 +410,9 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
     for (int j = 0; j < (int)kpts_aux_[i].size(); j++) {
 
       const KeyPoint& pt = kpts_aux_[i][j];
+
+      if (pt.class_id == -1) // Skip a deleted point
+          continue;
 
       int idx = 0;
       if (find_neighbor_point(pt, kpts_aux_[i + 1], j + 1, idx)) {
