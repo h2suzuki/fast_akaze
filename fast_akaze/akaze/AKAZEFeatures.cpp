@@ -301,7 +301,6 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 {
 
   int npoints = 0, id_repeated = 0;
-  int sigma_size_ = 0;
   bool is_repeated = false;
 
   kpts_aux_.clear();
@@ -318,6 +317,9 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
   for (int i = 0; i < (int)evolution_.size(); i++) {
     float* prev = evolution_[i].Ldet.ptr<float>(0);
     float* curr = evolution_[i].Ldet.ptr<float>(1);
+
+    const int border = fRoundV2(smax * evolution_[i].sigma_size) + 1;
+
     for (int ix = 1; ix < evolution_[i].Ldet.rows - 1; ix++) {
       float* next = evolution_[i].Ldet.ptr<float>(ix + 1);
 
@@ -347,7 +349,6 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
           bool is_extremum = true;
 
           float ratio = evolution_[i].octave_ratio;
-          sigma_size_ = evolution_[i].sigma_size;
 
           // Compare response with the same and lower scale
           for (int ik = 0; ik < (int)kpts_aux_.size(); ik++) {
@@ -374,10 +375,10 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
           if (is_extremum == true) {
 
             // Check that the point is under the image limits for the descriptor computation
-            int left_x = fRoundV2(point.pt.x - smax*sigma_size_) - 1;
-            int right_x = fRoundV2(point.pt.x + smax*sigma_size_) + 1;
-            int up_y = fRoundV2(point.pt.y - smax*sigma_size_) - 1;
-            int down_y = fRoundV2(point.pt.y + smax*sigma_size_) + 1;
+            int left_x = jx - border;
+            int right_x = jx + border;
+            int up_y = ix - border;
+            int down_y = ix + border;
 
 
             if (left_x >= 0 && right_x < evolution_[i].Ldet.cols &&
