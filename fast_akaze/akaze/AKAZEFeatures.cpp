@@ -340,8 +340,8 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
         if (value <= next[jx-1] || value <= next[jx] || value <= next[jx+1])
           continue;
 
-        KeyPoint point( /* x */ static_cast<float>(jx),
-                        /* y */ static_cast<float>(ix),
+        KeyPoint point( /* x */ static_cast<float>(jx * evolution_[i].octave_ratio),
+                        /* y */ static_cast<float>(ix * evolution_[i].octave_ratio),
                         /* size */ evolution_[i].esigma*options_.derivative_factor,
                         /* angle */ -1,
                         /* response */ fabs(value),
@@ -350,15 +350,13 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 
           bool is_extremum = true;
 
-          float ratio = evolution_[i].octave_ratio;
-
           // Compare response with the same and lower scale
           for (int ik = 0; ik < (int)kpts_aux_.size(); ik++) {
 
             if ((point.class_id - 1) == kpts_aux_[ik].class_id ||
                 point.class_id == kpts_aux_[ik].class_id) {
-              float distx = point.pt.x*ratio - kpts_aux_[ik].pt.x;
-              float disty = point.pt.y*ratio - kpts_aux_[ik].pt.y;
+              float distx = point.pt.x - kpts_aux_[ik].pt.x;
+              float disty = point.pt.y - kpts_aux_[ik].pt.y;
               float dist = distx * distx + disty * disty;
               if (dist <= point.size * point.size) {
                 if (point.response > kpts_aux_[ik].response) {
@@ -376,14 +374,10 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
           if (is_extremum == true) {
 
               if (is_repeated == false) {
-                point.pt.x *= ratio;
-                point.pt.y *= ratio;
                 kpts_aux_.push_back(point);
                 npoints++;
               }
               else {
-                point.pt.x *= ratio;
-                point.pt.y *= ratio;
                 kpts_aux_[id_repeated] = point;
               }
 
