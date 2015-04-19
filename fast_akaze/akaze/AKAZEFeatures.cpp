@@ -99,7 +99,10 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
   lstep_.create(options_.img_height, options_.img_width, CV_32FC1);
   histgram_.resize(options_.kcontrast_nbins);
   modgs_.resize((options_.img_height - 2) * (options_.img_width - 2));  // excluding the border
-  kpts_aux_.reserve(evolution_.size() * 1024);  // reserve 1K points' space for each evolution step
+
+  kpts_aux_.resize(evolution_.size());
+  for (size_t i = 0; i < evolution_.size(); i++)
+      kpts_aux_[i].reserve(1024);  // reserve 1K points' space for each evolution step
 
   // Allocate memory for the number of cycles and time steps
   tsteps_.resize(evolution_.size() - 1);
@@ -297,21 +300,16 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
  * @brief This method searches v for a neighbor point of the point candidate p
  * @param p The keypoint candidate to search a neighbor
  * @param v The vector to store the points to be searched
- * @param level The evolution level to be searched
  * @param offset The starting location in the vector v to be searched at
  * @param idx The index of the vector v if a neighbor is found
  * @return true if a neighbor point is found; false otherwise
  */
 inline
-bool find_neighbor_point(const KeyPoint &p, const vector<KeyPoint> &v, int level, const int offset, int &idx)
+bool find_neighbor_point(const KeyPoint &p, const vector<KeyPoint> &v, const int offset, int &idx)
 {
     const int sz = (int)v.size();
 
     for (int i = offset; i < sz; i++) {
-
-        if (v[i].class_id != level)
-            continue;
-
         float dx = p.pt.x - v[i].pt.x;
         float dy = p.pt.y - v[i].pt.y;
         if (dx * dx + dy * dy <= p.size * p.size) {
@@ -330,8 +328,9 @@ bool find_neighbor_point(const KeyPoint &p, const vector<KeyPoint> &v, int level
  */
 void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 {
-
-  kpts_aux_.clear();
+  // Clear the workspace to hold the detected keypoint candidates
+  for (size_t i = 0; i < kpts_aux_.size(); i++)
+    kpts_aux_[i].clear();
 
   // Set maximum size
   float smax = 0.0;
@@ -378,20 +377,22 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
         int ik = 0;
 
         // Compare response with the same scale
-        if (find_neighbor_point(point, kpts_aux_, i, 0, ik)) {
-          if (point.response > kpts_aux_[ik].response)
-            kpts_aux_[ik] = point;
+        if (find_neighbor_point(point, kpts_aux_[i], 0, ik)) {
+          if (point.response > kpts_aux_[i][ik].response)
+            kpts_aux_[i][ik] = point;
           continue;
         }
 
         // Compare response with the lower scale
-        if (i > 0 && find_neighbor_point(point, kpts_aux_, i - 1, 0, ik)) {
-          if (point.response > kpts_aux_[ik].response)
-            kpts_aux_[ik] = point;
+        if (i > 0 && find_neighbor_point(point, kpts_aux_[i - 1], 0, ik)) {
+          if (point.response > kpts_aux_[i - 1][ik].response) {
+            kpts_aux_[i - 1].erase(std::begin(kpts_aux_[i - 1]) + ik);
+            kpts_aux_[i].push_back(point);
+          }
           continue;
         }
 
-        kpts_aux_.push_back(point);
+        kpts_aux_[i].push_back(point);  // A good keypoint candidate is found
 
       } // for jx
       prev = curr;
@@ -401,17 +402,19 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
   } // for i
 
   // Now filter points with the upper scale level
-  for (int i = 0; i < (int)kpts_aux_.size(); i++) {
+  for (int i = 0; i < (int)kpts_aux_.size() - 1; i++) {
+    for (int j = 0; j < (int)kpts_aux_[i].size(); j++) {
 
-    const KeyPoint& pt = kpts_aux_[i];
+      const KeyPoint& pt = kpts_aux_[i][j];
 
-    int j = 0;
-    if (find_neighbor_point(pt, kpts_aux_, pt.class_id + 1, i + 1, j)) {
-      if (pt.response < kpts_aux_[j].response)
-        continue;
+      int idx = 0;
+      if (find_neighbor_point(pt, kpts_aux_[i + 1], j + 1, idx)) {
+        if (pt.response < kpts_aux_[i + 1][idx].response)
+          continue;
+      }
+
+      kpts.push_back(pt);
     }
-
-    kpts.push_back(pt);
   }
 }
 
