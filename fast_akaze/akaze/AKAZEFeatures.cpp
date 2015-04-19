@@ -300,7 +300,6 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
 void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 {
 
-  float value = 0.0;
   float dist = 0.0, ratio = 0.0, smax = 0.0;
   int npoints = 0, id_repeated = 0;
   int sigma_size_ = 0, left_x = 0, right_x = 0, up_y = 0, down_y = 0;
@@ -327,7 +326,8 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
         is_extremum = false;
         is_repeated = false;
         is_out = false;
-        value = *(evolution_[i].Ldet.ptr<float>(ix)+jx);
+
+        const float value = curr[jx];
 
         // Filter the points with the detector threshold
         if (value > options_.dthreshold && value >= options_.min_dthreshold &&
