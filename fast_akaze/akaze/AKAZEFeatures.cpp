@@ -294,6 +294,37 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
 
 /* ************************************************************************* */
 /**
+ * @brief This method searches v for a neighbor point of the point candidate p
+ * @param p The keypoint candidate to search a neighbor
+ * @param v The vector to store the points to be searched
+ * @param level The evolution level to be searched
+ * @param offset The starting location in the vector v to be searched at
+ * @param idx The index of the vector v if a neighbor is found
+ * @return true if a neighbor point is found; false otherwise
+ */
+inline
+bool find_neighbor_point(const KeyPoint &p, const vector<KeyPoint> &v, int level, const int offset, int &idx)
+{
+    const int sz = (int)v.size();
+
+    for (int i = offset; i < sz; i++) {
+
+        if (v[i].class_id != level)
+            continue;
+
+        float dx = p.pt.x - v[i].pt.x;
+        float dy = p.pt.y - v[i].pt.y;
+        if (dx * dx + dy * dy <= p.size * p.size) {
+            idx = i;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/* ************************************************************************* */
+/**
  * @brief This method finds extrema in the nonlinear scale space
  * @param kpts Vector of detected keypoints
  */
@@ -344,24 +375,25 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
                         /* octave */ evolution_[i].octave,
                         /* class_id */ i);
 
-          // Compare response with the same and lower scale
-          for (int ik = 0; ik < (int)kpts_aux_.size(); ik++) {
+        int ik = 0;
 
-            if ((point.class_id - 1) == kpts_aux_[ik].class_id ||
-                point.class_id == kpts_aux_[ik].class_id) {
-              float distx = point.pt.x - kpts_aux_[ik].pt.x;
-              float disty = point.pt.y - kpts_aux_[ik].pt.y;
-              float dist = distx * distx + disty * disty;
-              if (dist <= point.size * point.size) {
-                if (point.response > kpts_aux_[ik].response) {
-                  kpts_aux_[ik] = point;
-                }
-                goto next_point;
-              }
-            }
+        // Compare response with the same scale
+        if (find_neighbor_point(point, kpts_aux_, i, 0, ik)) {
+          if (point.response > kpts_aux_[ik].response) {
+            kpts_aux_[ik] = point;
           }
+          goto next_point;
+        }
 
-          kpts_aux_.push_back(point);
+        // Compare response with the lower scale
+        if (i > 0 && find_neighbor_point(point, kpts_aux_, i - 1, 0, ik)) {
+          if (point.response > kpts_aux_[ik].response) {
+            kpts_aux_[ik] = point;
+          }
+          goto next_point;
+        }
+
+        kpts_aux_.push_back(point);
 
 next_point:;
 
@@ -373,21 +405,14 @@ next_point:;
   } // for i
 
   // Now filter points with the upper scale level
-  for (size_t i = 0; i < kpts_aux_.size(); i++) {
+  for (int i = 0; i < (int)kpts_aux_.size(); i++) {
 
     const KeyPoint& pt = kpts_aux_[i];
-    for (size_t j = i + 1; j < kpts_aux_.size(); j++) {
+    int j = 0;
 
-      // Compare response with the upper scale
-      if ((pt.class_id + 1) == kpts_aux_[j].class_id) {
-        float distx = pt.pt.x - kpts_aux_[j].pt.x;
-        float disty = pt.pt.y - kpts_aux_[j].pt.y;
-        float dist = distx * distx + disty * disty;
-        if (dist <= pt.size * pt.size) {
-          if (pt.response < kpts_aux_[j].response) {
-            goto next_point2; // stronger response found
-          }
-        }
+    if (find_neighbor_point(pt, kpts_aux_, pt.class_id + 1, i + 1, j)) {
+      if (pt.response < kpts_aux_[j].response) {
+        goto next_point2;
       }
     }
 
