@@ -301,7 +301,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 {
 
   int npoints = 0, id_repeated = 0;
-  int sigma_size_ = 0, left_x = 0, right_x = 0, up_y = 0, down_y = 0;
+  int sigma_size_ = 0;
   bool is_extremum = false, is_repeated = false, is_out = false;
 
   kpts_aux_.clear();
@@ -376,10 +376,11 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
           if (is_extremum == true) {
 
             // Check that the point is under the image limits for the descriptor computation
-            left_x = fRoundV2(point.pt.x - smax*sigma_size_) - 1;
-            right_x = fRoundV2(point.pt.x + smax*sigma_size_) + 1;
-            up_y = fRoundV2(point.pt.y - smax*sigma_size_) - 1;
-            down_y = fRoundV2(point.pt.y + smax*sigma_size_) + 1;
+            int left_x = fRoundV2(point.pt.x - smax*sigma_size_) - 1;
+            int right_x = fRoundV2(point.pt.x + smax*sigma_size_) + 1;
+            int up_y = fRoundV2(point.pt.y - smax*sigma_size_) - 1;
+            int down_y = fRoundV2(point.pt.y + smax*sigma_size_) + 1;
+
 
             if (left_x < 0 || right_x >= evolution_[i].Ldet.cols ||
                 up_y < 0 || down_y >= evolution_[i].Ldet.rows) {
