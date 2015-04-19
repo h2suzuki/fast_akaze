@@ -300,7 +300,7 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
 void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 {
 
-  int npoints = 0, id_repeated = 0;
+  int id_repeated = 0;
   bool is_repeated = false;
 
   kpts_aux_.clear();
@@ -375,7 +375,6 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 
               if (is_repeated == false) {
                 kpts_aux_.push_back(point);
-                npoints++;
               }
               else {
                 kpts_aux_[id_repeated] = point;
