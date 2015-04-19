@@ -379,23 +379,19 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 
         // Compare response with the same scale
         if (find_neighbor_point(point, kpts_aux_, i, 0, ik)) {
-          if (point.response > kpts_aux_[ik].response) {
+          if (point.response > kpts_aux_[ik].response)
             kpts_aux_[ik] = point;
-          }
-          goto next_point;
+          continue;
         }
 
         // Compare response with the lower scale
         if (i > 0 && find_neighbor_point(point, kpts_aux_, i - 1, 0, ik)) {
-          if (point.response > kpts_aux_[ik].response) {
+          if (point.response > kpts_aux_[ik].response)
             kpts_aux_[ik] = point;
-          }
-          goto next_point;
+          continue;
         }
 
         kpts_aux_.push_back(point);
-
-next_point:;
 
       } // for jx
       prev = curr;
@@ -408,17 +404,14 @@ next_point:;
   for (int i = 0; i < (int)kpts_aux_.size(); i++) {
 
     const KeyPoint& pt = kpts_aux_[i];
-    int j = 0;
 
+    int j = 0;
     if (find_neighbor_point(pt, kpts_aux_, pt.class_id + 1, i + 1, j)) {
-      if (pt.response < kpts_aux_[j].response) {
-        goto next_point2;
-      }
+      if (pt.response < kpts_aux_[j].response)
+        continue;
     }
 
     kpts.push_back(pt);
-
-next_point2:;
   }
 }
 
