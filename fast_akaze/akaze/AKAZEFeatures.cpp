@@ -300,9 +300,6 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
 void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 {
 
-  int id_repeated = 0;
-  bool is_repeated = false;
-
   kpts_aux_.clear();
 
   // Set maximum size
@@ -326,7 +323,6 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
     for (int ix = border; ix < evolution_[i].Ldet.rows - border; ix++) {
 
       for (int jx = border; jx < evolution_[i].Ldet.cols - border; jx++) {
-        is_repeated = false;
 
         const float value = curr[jx];
 
@@ -349,6 +345,8 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
                         /* class_id */ i);
 
           bool is_extremum = true;
+          bool is_repeated = false;
+          int id_repeated = 0;
 
           // Compare response with the same and lower scale
           for (int ik = 0; ik < (int)kpts_aux_.size(); ik++) {
@@ -392,7 +390,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
   // Now filter points with the upper scale level
   for (size_t i = 0; i < kpts_aux_.size(); i++) {
 
-    is_repeated = false;
+    bool is_repeated = false;
     const KeyPoint& pt = kpts_aux_[i];
     for (size_t j = i + 1; j < kpts_aux_.size(); j++) {
 
