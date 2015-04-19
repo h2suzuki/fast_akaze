@@ -344,7 +344,6 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
                         /* octave */ evolution_[i].octave,
                         /* class_id */ i);
 
-          bool is_extremum = true;
           bool is_repeated = false;
           int id_repeated = 0;
 
@@ -362,23 +361,21 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
                   is_repeated = true;
                 }
                 else {
-                  is_extremum = false;
+                  goto next_point;
                 }
                 break;
               }
             }
           }
 
-          if (is_extremum == true) {
+          if (is_repeated == false) {
+            kpts_aux_.push_back(point);
+          }
+          else {
+            kpts_aux_[id_repeated] = point;
+          }
 
-              if (is_repeated == false) {
-                kpts_aux_.push_back(point);
-              }
-              else {
-                kpts_aux_[id_repeated] = point;
-              }
-
-          } //if is_extremum
+next_point:;
 
       } // for jx
       prev = curr;
