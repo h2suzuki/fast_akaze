@@ -818,6 +818,9 @@ void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<
   // Get the information from the keypoint
   int level = kpt.class_id;
   float ratio = evolution_[level].octave_ratio;
+  const float * lx = evolution_[level].Lx.ptr<float>(0);
+  const float * ly = evolution_[level].Ly.ptr<float>(0);
+  int cols = evolution_[level].Lx.cols;
   int s = fRoundV2(0.5f*kpt.size / ratio);
   int x0 = fRoundV2(kpt.pt.x / ratio);
   int y0 = fRoundV2(kpt.pt.y / ratio);
@@ -831,8 +834,8 @@ void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<
         int ix = x0 + i * s;
 
         float gweight = gauss25[id[i + 6]][id[j + 6]];
-        resX[idx] = gweight*(*(evolution_[level].Lx.ptr<float>(iy)+ix));
-        resY[idx] = gweight*(*(evolution_[level].Ly.ptr<float>(iy)+ix));
+        resX[idx] = gweight * lx[iy * cols + ix];
+        resY[idx] = gweight * ly[iy * cols + ix];
 
         ++idx;
       }
