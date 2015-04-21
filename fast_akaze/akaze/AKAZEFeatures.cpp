@@ -811,30 +811,26 @@ void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<
         { 0.00142946f, 0.00131956f, 0.00103800f, 0.00069579f, 0.00039744f, 0.00019346f, 0.00008024f }
     };
 
-  int ix = 0, iy = 0, idx = 0, s = 0, level = 0;
-  float xf = 0.0, yf = 0.0, gweight = 0.0, ratio = 0.0;
   const int ang_size = 109;
   float resX[ang_size], resY[ang_size], Ang[ang_size];
   const int id[] = { 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6 };
 
-  // Variables for computing the dominant direction
-  float sumX = 0.0, sumY = 0.0, max = 0.0, ang1 = 0.0, ang2 = 0.0;
-
   // Get the information from the keypoint
-  level = kpt.class_id;
-  ratio = evolution_[level].octave_ratio;
-  s = fRoundV2(0.5f*kpt.size / ratio);
-  xf = kpt.pt.x / ratio;
-  yf = kpt.pt.y / ratio;
+  int level = kpt.class_id;
+  float ratio = evolution_[level].octave_ratio;
+  int s = fRoundV2(0.5f*kpt.size / ratio);
+  float xf = kpt.pt.x / ratio;
+  float yf = kpt.pt.y / ratio;
 
   // Calculate derivatives responses for points within radius of 6*scale
+  int idx = 0;
   for (int i = -6; i <= 6; ++i) {
     for (int j = -6; j <= 6; ++j) {
       if (i*i + j*j < 36) {
-        iy = fRoundV2(yf + j*s);
-        ix = fRoundV2(xf + i*s);
+        int iy = fRoundV2(yf + j*s);
+        int ix = fRoundV2(xf + i*s);
 
-        gweight = gauss25[id[i + 6]][id[j + 6]];
+        float gweight = gauss25[id[i + 6]][id[j + 6]];
         resX[idx] = gweight*(*(evolution_[level].Lx.ptr<float>(iy)+ix));
         resY[idx] = gweight*(*(evolution_[level].Ly.ptr<float>(iy)+ix));
 
@@ -843,10 +839,15 @@ void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<
     }
   }
   fastAtan2(resY, resX, Ang, ang_size, false);
+
   // Loop slides pi/3 window around feature point
-  for (ang1 = 0; ang1 < (float)(2.0 * CV_PI); ang1 += 0.15f) {
-    ang2 = (ang1 + (float)(CV_PI / 3.0) >(float)(2.0*CV_PI) ? ang1 - (float)(5.0*CV_PI / 3.0) : ang1 + (float)(CV_PI / 3.0));
-    sumX = sumY = 0.f;
+  float max = 0.0;
+  for (float ang1 = 0; ang1 < (float)(2.0 * CV_PI); ang1 += 0.15f) {
+    float ang2 = (ang1 + (float)(CV_PI / 3.0) >(float)(2.0*CV_PI) ?
+        ang1 - (float)(5.0*CV_PI / 3.0) :
+        ang1 + (float)(CV_PI / 3.0));
+    float sumX = 0.f;
+    float sumY = 0.f;
 
     for (int k = 0; k < ang_size; ++k) {
       // Get angle from the x-axis of the sample point
