@@ -819,16 +819,16 @@ void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<
   int level = kpt.class_id;
   float ratio = evolution_[level].octave_ratio;
   int s = fRoundV2(0.5f*kpt.size / ratio);
-  float xf = kpt.pt.x / ratio;
-  float yf = kpt.pt.y / ratio;
+  int x0 = fRoundV2(kpt.pt.x / ratio);
+  int y0 = fRoundV2(kpt.pt.y / ratio);
 
   // Calculate derivatives responses for points within radius of 6*scale
   int idx = 0;
   for (int i = -6; i <= 6; ++i) {
     for (int j = -6; j <= 6; ++j) {
       if (i*i + j*j < 36) {
-        int iy = fRoundV2(yf + j*s);
-        int ix = fRoundV2(xf + i*s);
+        int iy = y0 + j * s;
+        int ix = x0 + i * s;
 
         float gweight = gauss25[id[i + 6]][id[j + 6]];
         resX[idx] = gweight*(*(evolution_[level].Lx.ptr<float>(iy)+ix));
