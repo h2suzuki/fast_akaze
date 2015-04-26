@@ -889,39 +889,61 @@ void Compute_Main_Orientation(KeyPoint& kpt, const TEvolutionV2& e)
   }
   fastAtan2(resY, resX, Ang, ang_size, false);
 
-  // Loop slides pi/3 window around feature point
-  float max = 0.0;
-  for (float ang1 = 0; ang1 < (float)(2.0 * CV_PI); ang1 += 0.15f) {
-    float ang2 = (ang1 + (float)(CV_PI / 3.0) >(float)(2.0*CV_PI) ?
-        ang1 - (float)(5.0*CV_PI / 3.0) :
-        ang1 + (float)(CV_PI / 3.0));
-    float sumX = 0.f;
-    float sumY = 0.f;
+  // Sort by the angles; angles are labeled by slices of 0.15 radian
+  const int slices = (int)(2.0 * CV_PI / 0.15f) + 1;  /* i.e. 42 */
+  uint8_t slice[slices + 1];
+  uint8_t sorted_idx[ang_size];
+  quantized_counting_sort(Ang, ang_size, 0.15f, (float)(2.0 * CV_PI), sorted_idx, slice);
 
-    for (int k = 0; k < ang_size; ++k) {
-      // Get angle from the x-axis of the sample point
-      const float & ang = Ang[k];
+  // Find the main angle by sliding a 7-slice-size window (1.05 = PI/3 approx) around the keypoint
+  const int win = 7;
 
-      // Determine whether the point is within the window
-      if (ang1 < ang2 && ang1 < ang && ang < ang2) {
-        sumX += resX[k];
-        sumY += resY[k];
-      }
-      else if (ang2 < ang1 &&
-               ((ang > 0 && ang < ang2) || (ang > ang1 && ang < 2.0f*CV_PI))) {
-        sumX += resX[k];
-        sumY += resY[k];
-      }
-    }
-
-    // if the vector produced from this window is longer than all
-    // previous vectors then this forms the new dominant direction
-    if (sumX*sumX + sumY*sumY > max) {
-      // store largest orientation
-      max = sumX*sumX + sumY*sumY;
-      kpt.angle = getAngleV2(sumX, sumY);
-    }
+  float maxX = 0.0f, maxY = 0.0f;
+  for (int i = slice[0]; i < slice[win]; i++) {
+    maxX += resX[sorted_idx[i]];
+    maxY += resY[sorted_idx[i]];
   }
+  float maxNorm = maxX * maxX + maxY * maxY;
+
+  for (int sn = 1; sn <= slices - win; sn++) {
+
+    if (slice[sn] == slice[sn - 1] && slice[sn + win] == slice[sn + win - 1])
+      continue;  // The contents of the window didn't change; don't repeat the computation
+
+    float sumX = 0.0f, sumY = 0.0f;
+    for (int i = slice[sn]; i < slice[sn + win]; i++) {
+      sumX += resX[sorted_idx[i]];
+      sumY += resY[sorted_idx[i]];
+    }
+
+    float norm = sumX * sumX + sumY * sumY;
+    if (norm > maxNorm)
+        maxNorm = norm, maxX = sumX, maxY = sumY;  // Found bigger one; update
+  }
+
+  for (int sn = slices - win + 1; sn < slices; sn++) {
+    int remain = sn + win - slices;
+
+    if (slice[sn] == slice[sn - 1] && slice[remain] == slice[remain - 1])
+      continue;
+
+    float sumX = 0.0f, sumY = 0.0f;
+    for (int i = slice[sn]; i < slice[slices]; i++) {
+      sumX += resX[sorted_idx[i]];
+      sumY += resY[sorted_idx[i]];
+    }
+    for (int i = slice[0]; i < slice[remain]; i++) {
+      sumX += resX[sorted_idx[i]];
+      sumY += resY[sorted_idx[i]];
+    }
+
+    float norm = sumX * sumX + sumY * sumY;
+    if (norm > maxNorm)
+        maxNorm = norm, maxX = sumX, maxY = sumY;
+  }
+
+  // Store the final result
+  kpt.angle = getAngleV2(maxX, maxY);
 }
 
 /* ************************************************************************* */
