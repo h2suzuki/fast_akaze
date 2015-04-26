@@ -433,6 +433,9 @@ void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<std::vector<KeyPoint>>&
   kpts.clear();
 
   for (int i = 0; i < (int)kpts_aux.size(); i++) {
+    const float * const ldet = evolution_[i].Ldet.ptr<float>(0);
+    const int cols = evolution_[i].Ldet.cols;
+
     for (int j = 0; j < (int)kpts_aux[i].size(); j++) {
 
       KeyPoint & kp = kpts_aux[i][j];
@@ -444,23 +447,15 @@ void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<std::vector<KeyPoint>>&
       int x = (int)(kp.pt.x / ratio);
       int y = (int)(kp.pt.y / ratio);
 
-      /* The labeling scheme:
-           row y - 1  [ a ]
-           row y      [ c ]
-           row y + 1  [ b ]
-       */
-      float * ldet_a = evolution_[kp.class_id].Ldet.ptr<float>(y - 1);
-      float * ldet_c = evolution_[kp.class_id].Ldet.ptr<float>(y    );
-      float * ldet_b = evolution_[kp.class_id].Ldet.ptr<float>(y + 1);
-
       // Compute the gradient
-      float Dx = 0.5f * (ldet_c[x + 1] - ldet_c[x - 1]);
-      float Dy = 0.5f * (ldet_b[x    ] - ldet_a[x    ]);
+      float Dx = 0.5f * (ldet[ y     *cols + x + 1] - ldet[ y     *cols + x - 1]);
+      float Dy = 0.5f * (ldet[(y + 1)*cols + x    ] - ldet[(y - 1)*cols + x    ]);
 
       // Compute the Hessian
-      float Dxx = ldet_c[x + 1] + ldet_c[x - 1] - 2.0f * ldet_c[x];
-      float Dyy = ldet_b[x    ] + ldet_a[x    ] - 2.0f * ldet_c[x];
-      float Dxy = 0.25f * (ldet_b[x + 1] + ldet_a[x - 1] - ldet_a[x + 1] - ldet_b[x - 1]);
+      float Dxx = ldet[ y     *cols + x + 1] + ldet[ y     *cols + x - 1] - 2.0f * ldet[y*cols + x];
+      float Dyy = ldet[(y + 1)*cols + x    ] + ldet[(y - 1)*cols + x    ] - 2.0f * ldet[y*cols + x];
+      float Dxy = 0.25f * (ldet[(y + 1)*cols + x + 1] + ldet[(y - 1)*cols + x - 1]
+                         - ldet[(y - 1)*cols + x + 1] - ldet[(y + 1)*cols + x - 1]);
 
       // Solve the linear system
       Matx22f A{ Dxx, Dxy,
