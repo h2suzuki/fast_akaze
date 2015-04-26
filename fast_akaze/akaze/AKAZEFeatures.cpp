@@ -374,7 +374,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
                         /* y */ static_cast<float>(y * step.octave_ratio),
                         /* size */ step.esigma * options_.derivative_factor,
                         /* angle */ -1,
-                        /* response */ fabs(value),
+                        /* response */ value,
                         /* octave */ step.octave,
                         /* class_id */ i);
 
