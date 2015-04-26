@@ -802,6 +802,76 @@ void AKAZEFeaturesV2::Compute_Descriptors(std::vector<KeyPoint>& kpts, Mat& desc
 
 /* ************************************************************************* */
 /**
+ * @brief This function samples the derivative responses Lx and Ly for the points
+ * within the radius of 6*scale from (x0, y0), then multiply 2D Gaussian weight
+ * @param Lx Horizontal derivative
+ * @param Ly Vertical derivative
+ * @param x0 X-coordinate of the center point
+ * @param y0 Y-coordinate of the center point
+ * @param scale The sampling step
+ * @param resX Output array of the weighted horizontal derivative responses
+ * @param resY Output array of the weighted vertical derivative responses
+ */
+static inline
+void Sample_Derivative_Response_Radius6(const Mat &Lx, const Mat &Ly,
+                                  const int x0, const int y0, const int scale,
+                                  float *resX, float *resY)
+{
+    /* ************************************************************************* */
+    /// Lookup table for 2d gaussian (sigma = 2.5) where (0,0) is top left and (6,6) is bottom right
+    static const float gauss25[7][7] =
+    {
+        { 0.02546481f, 0.02350698f, 0.01849125f, 0.01239505f, 0.00708017f, 0.00344629f, 0.00142946f },
+        { 0.02350698f, 0.02169968f, 0.01706957f, 0.01144208f, 0.00653582f, 0.00318132f, 0.00131956f },
+        { 0.01849125f, 0.01706957f, 0.01342740f, 0.00900066f, 0.00514126f, 0.00250252f, 0.00103800f },
+        { 0.01239505f, 0.01144208f, 0.00900066f, 0.00603332f, 0.00344629f, 0.00167749f, 0.00069579f },
+        { 0.00708017f, 0.00653582f, 0.00514126f, 0.00344629f, 0.00196855f, 0.00095820f, 0.00039744f },
+        { 0.00344629f, 0.00318132f, 0.00250252f, 0.00167749f, 0.00095820f, 0.00046640f, 0.00019346f },
+        { 0.00142946f, 0.00131956f, 0.00103800f, 0.00069579f, 0.00039744f, 0.00019346f, 0.00008024f }
+    };
+    static const int id[] = { 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6 };
+
+    const int sz = 109;
+    static float gweight[sz];
+    static int8_t xidx[sz];
+    static int8_t yidx[sz];
+
+    static bool initialized = false;
+
+
+  if (!initialized) {
+    int k = 0;
+
+    // Generate the indices
+    for (int i = -6; i <= 6; ++i) {
+      for (int j = -6; j <= 6; ++j) {
+        if (i*i + j*j < 36) {
+          gweight[k] = gauss25[id[i + 6]][id[j + 6]];
+          yidx[k] = i;
+          xidx[k] = j;
+          ++k;
+        }
+      }
+    }
+    CV_DbgAssert(k == sz);
+
+    initialized = true;
+  }
+
+  const float * lx = Lx.ptr<float>(0);
+  const float * ly = Ly.ptr<float>(0);
+  int cols = Lx.cols;
+
+  for (int i = 0; i < sz; i++) {
+    int j = (y0 + yidx[i] * scale) * cols + (x0 + xidx[i] * scale);
+
+    resX[i] = gweight[i] * lx[j];
+    resY[i] = gweight[i] * ly[j];
+  }
+}
+
+/* ************************************************************************* */
+/**
  * @brief This function sorts a[] by quantized float values
  * @param a[] Input floating point array to sort
  * @param n The length of a[]
@@ -847,46 +917,18 @@ void quantized_counting_sort(const float a[], const int n,
 inline
 void Compute_Main_Orientation(KeyPoint& kpt, const TEvolutionV2& e)
 {
-    /* ************************************************************************* */
-    /// Lookup table for 2d gaussian (sigma = 2.5) where (0,0) is top left and (6,6) is bottom right
-    static const float gauss25[7][7] =
-    {
-        { 0.02546481f, 0.02350698f, 0.01849125f, 0.01239505f, 0.00708017f, 0.00344629f, 0.00142946f },
-        { 0.02350698f, 0.02169968f, 0.01706957f, 0.01144208f, 0.00653582f, 0.00318132f, 0.00131956f },
-        { 0.01849125f, 0.01706957f, 0.01342740f, 0.00900066f, 0.00514126f, 0.00250252f, 0.00103800f },
-        { 0.01239505f, 0.01144208f, 0.00900066f, 0.00603332f, 0.00344629f, 0.00167749f, 0.00069579f },
-        { 0.00708017f, 0.00653582f, 0.00514126f, 0.00344629f, 0.00196855f, 0.00095820f, 0.00039744f },
-        { 0.00344629f, 0.00318132f, 0.00250252f, 0.00167749f, 0.00095820f, 0.00046640f, 0.00019346f },
-        { 0.00142946f, 0.00131956f, 0.00103800f, 0.00069579f, 0.00039744f, 0.00019346f, 0.00008024f }
-    };
-    static const int id[] = { 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6 };
-
-  const int ang_size = 109;
-  float resX[ang_size], resY[ang_size], Ang[ang_size];
-
-  const float * lx = e.Lx.ptr<float>(0);
-  const float * ly = e.Ly.ptr<float>(0);
-  int cols = e.Lx.cols;
-
   // Get the information from the keypoint
   int scale = fRoundV2(0.5f * kpt.size / e.octave_ratio);
   int x0 = fRoundV2(kpt.pt.x / e.octave_ratio);
   int y0 = fRoundV2(kpt.pt.y / e.octave_ratio);
 
-  // Calculate derivatives responses for points within radius of 6*scale
-  int k = 0;
-  for (int i = -6; i <= 6; ++i) {
-    for (int j = -6; j <= 6; ++j) {
-      if (i*i + j*j < 36) {
-        float gweight = gauss25[id[i + 6]][id[j + 6]];
+  // Sample derivatives responses for the points within radius of 6*scale
+  const int ang_size = 109;
+  float resX[ang_size], resY[ang_size];
+  Sample_Derivative_Response_Radius6(e.Lx, e.Ly, x0, y0, scale, resX, resY);
 
-        int idx = (y0 + i * scale) * cols + (x0 + j * scale);
-        resX[k] = gweight * lx[idx];
-        resY[k] = gweight * ly[idx];
-        ++k;
-      }
-    }
-  }
+  // Compute the angle of each gradient vector
+  float Ang[ang_size];
   fastAtan2(resY, resX, Ang, ang_size, false);
 
   // Sort by the angles; angles are labeled by slices of 0.15 radian
