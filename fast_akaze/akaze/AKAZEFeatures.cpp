@@ -434,6 +434,7 @@ void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<std::vector<KeyPoint>>&
 
   for (int i = 0; i < (int)kpts_aux.size(); i++) {
     const float * const ldet = evolution_[i].Ldet.ptr<float>(0);
+    const float ratio = evolution_[i].octave_ratio;
     const int cols = evolution_[i].Ldet.cols;
 
     for (int j = 0; j < (int)kpts_aux[i].size(); j++) {
@@ -443,7 +444,6 @@ void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<std::vector<KeyPoint>>&
       if (kp.class_id == -1)
         continue; // Skip a deleted keypoint
 
-      float ratio = evolution_[kp.class_id].octave_ratio;
       int x = (int)(kp.pt.x / ratio);
       int y = (int)(kp.pt.y / ratio);
 
