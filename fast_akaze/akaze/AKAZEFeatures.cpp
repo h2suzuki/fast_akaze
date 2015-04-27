@@ -1606,9 +1606,6 @@ void MLDB_Full_Descriptor_InvokerV2::Get_MLDB_Full_Descriptor(const KeyPoint& kp
 void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint& kpt, unsigned char *desc) const {
 
   const TEvolutionV2 & e = evolution_[kpt.class_id];
-  float di = 0.f, dx = 0.f, dy = 0.f;
-  float sample_x = 0.f, sample_y = 0.f;
-  int x1 = 0, y1 = 0;
 
   // Get the information from the keypoint
   int scale = fRoundV2(0.5f*kpt.size / e.octave_ratio);
@@ -1633,19 +1630,16 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
     CV_DbgAssert(0 <= coords[0] && coords[0] < 3);
     int sample_step = steps[coords[0]];
 
-    di = 0.0f;
-    dx = 0.0f;
-    dy = 0.0f;
+    float di = 0.0f;
+    float dx = 0.0f;
+    float dy = 0.0f;
 
     for (int k = coords[1]; k < coords[1] + sample_step; k++) {
       for (int l = coords[2]; l < coords[2] + sample_step; l++) {
 
         // Get the coordinates of the sample point
-        sample_y = yf + (l*scale*co + k*scale*si);
-        sample_x = xf + (-l*scale*si + k*scale*co);
-
-        y1 = fRoundV2(sample_y);
-        x1 = fRoundV2(sample_x);
+        int y1 = fRoundV2(yf + ( l*scale*co + k*scale*si));
+        int x1 = fRoundV2(xf + (-l*scale*si + k*scale*co));
 
         di += *(e.Lt.ptr<float>(y1)+x1);
 
@@ -1699,11 +1693,6 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
  */
 void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subset(const KeyPoint& kpt, unsigned char *desc) const {
 
-  float di = 0.0f, dx = 0.0f, dy = 0.0f;
-  float rx = 0.0f, ry = 0.0f;
-  float sample_x = 0.0f, sample_y = 0.0f;
-  int x1 = 0, y1 = 0;
-
   // Get the information from the keypoint
   float ratio = evolution_[kpt.class_id].octave_ratio;
   int scale = fRoundV2(0.5f*kpt.size / ratio);
@@ -1723,23 +1712,22 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
     const int *coords = descriptorSamples_.ptr<int>(i);
     CV_DbgAssert(0 <= coords[0] && coords[0] < 3);
 
-    int sample_step = steps[coords[0]];
-    di = 0.0f, dx = 0.0f, dy = 0.0f;
+    float di = 0.0f;
+    float dx = 0.0f;
+    float dy = 0.0f;
 
     for (int k = coords[1]; k < coords[1] + sample_step; k++) {
       for (int l = coords[2]; l < coords[2] + sample_step; l++) {
 
         // Get the coordinates of the sample point
-        sample_y = yf + l*scale;
-        sample_x = xf + k*scale;
+        int x1 = fRoundV2(xf + k*scale);
+        int y1 = fRoundV2(yf + l*scale);
 
-        y1 = fRoundV2(sample_y);
-        x1 = fRoundV2(sample_x);
         di += *(evolution_[level].Lt.ptr<float>(y1)+x1);
 
         if (options_.descriptor_channels > 1) {
-          rx = *(evolution_[level].Lx.ptr<float>(y1)+x1);
-          ry = *(evolution_[level].Ly.ptr<float>(y1)+x1);
+          float rx = *(evolution_[level].Lx.ptr<float>(y1)+x1);
+          float ry = *(evolution_[level].Ly.ptr<float>(y1)+x1);
 
           if (options_.descriptor_channels == 2) {
             dx += sqrtf(rx*rx + ry*ry);
