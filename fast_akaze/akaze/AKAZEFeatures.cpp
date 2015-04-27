@@ -170,6 +170,14 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
   CV_Assert(gray->type() == CV_32FC1);
 
 
+  // Handle the trivial case
+  if (evolution_.size() == 1) {
+    gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, options_.soffset);
+    evolution_[0].Lsmooth.copyTo(evolution_[0].Lt);
+    Compute_Determinant_Hessian_Response_Single();
+    return 0;
+  }
+
   // First compute the kcontrast factor
   gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, 1.0f);
   image_derivatives_scharrV2(evolution_[0].Lsmooth, evolution_[0].Lx, 1, 0);
