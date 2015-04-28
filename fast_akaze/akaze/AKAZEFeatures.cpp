@@ -1620,15 +1620,11 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
   float values[(4 + 9 + 16)*3];
 
   // Sample everything, but only do the comparisons
-  const int steps[3] = { options_.descriptor_pattern_size,
-                         (int)ceil(2.f*options_.descriptor_pattern_size / 3.f),
-                         options_.descriptor_pattern_size / 2 };
 
   for (int i = 0; i < descriptorSamples_.rows; i++) {
     const int *coords = descriptorSamples_.ptr<int>(i);
 
-    CV_DbgAssert(0 <= coords[0] && coords[0] < 3);
-    int sample_step = steps[coords[0]];
+    int sample_step = coords[0];
 
     float di = 0.0f;
     float dx = 0.0f;
@@ -1704,13 +1700,8 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
   CV_DbgAssert(options_.descriptor_channels <= 3);
   float values[(4 + 9 + 16)*3];
 
-  int steps[3] = { options_.descriptor_pattern_size,
-                   static_cast<int>(ceil(2.f*options_.descriptor_pattern_size / 3.f)),
-                   options_.descriptor_pattern_size / 2 };
-
   for (int i = 0; i < descriptorSamples_.rows; i++) {
     const int *coords = descriptorSamples_.ptr<int>(i);
-    CV_DbgAssert(0 <= coords[0] && coords[0] < 3);
 
     float di = 0.0f;
     float dx = 0.0f;
@@ -1797,6 +1788,12 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
 
   CV_Assert(nbits <= ssz); // Descriptor size can't be bigger than full descriptor
 
+  const int steps[3] = {
+    pattern_size,
+    (int)ceil(2.f * pattern_size / 3.f),
+    pattern_size / 2
+  };
+
   // Since the full descriptor is usually under 10k elements, we pick
   // the selection from the full matrix.  We take as many samples per
   // pick as the number of channels. For every pick, we
@@ -1812,7 +1809,7 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
 
     for (int j = 0; j < gsz; j++) {
       for (int k = j + 1; k < gsz; k++, c++) {
-        fullM(c, 0) = i;
+        fullM(c, 0) = steps[i];
         fullM(c, 1) = psz*(j % gdiv) - pattern_size;
         fullM(c, 2) = psz*(j / gdiv) - pattern_size;
         fullM(c, 3) = psz*(k % gdiv) - pattern_size;
