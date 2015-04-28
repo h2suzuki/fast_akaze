@@ -1819,7 +1819,7 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
   }
 
   int comps_stack[486 * 2]; // About 7.6KB workspace with 64-bit int on stack
-  Mat_<int> comps(nchannels * (int)ceil(nbits / (float)nchannels), 2, comps_stack);
+  Mat_<int> comps(486, 2, comps_stack);
   comps = 1000;
 
   int samples_stack[(4 + 9 + 16) * 3]; // 696 bytes workspace with 64-bit int on stack
