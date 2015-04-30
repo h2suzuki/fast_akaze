@@ -1615,9 +1615,9 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
   float si = sin(kpt.angle);
   int level = kpt.class_id;
 
-  // Allocate memory for the matrix of values
-  CV_DbgAssert(options_.descriptor_channels <= 3);
+  // Matrices for the M-LDB descriptor: the size is [grid size] * [channel size]
   CV_DbgAssert(descriptorSamples_.rows <= (4 + 9 + 16));
+  CV_DbgAssert(options_.descriptor_channels <= 3);
   float values[(4 + 9 + 16)*3];
 
   // Sample everything, but only do the comparisons
@@ -1697,9 +1697,9 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
   float yf = kpt.pt.y / ratio;
   float xf = kpt.pt.x / ratio;
 
-  // Allocate memory for the matrix of values
-  CV_DbgAssert(options_.descriptor_channels <= 3);
+  // Matrices for the M-LDB descriptor: the size is [grid size] * [channel size]
   CV_DbgAssert(descriptorSamples_.rows <= (4 + 9 + 16));
+  CV_DbgAssert(options_.descriptor_channels <= 3);
   float values[(4 + 9 + 16)*3];
 
   for (int i = 0; i < descriptorSamples_.rows; i++) {
