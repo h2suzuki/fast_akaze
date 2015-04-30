@@ -1620,11 +1620,11 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
   CV_DbgAssert(options_.descriptor_channels <= 3);
   float values[(4 + 9 + 16)*3];
 
+  // coords[3] is { grid_width, x, y }
+  const int *coords = descriptorSamples_.ptr<int>(0);
+
   // Sample everything, but only do the comparisons
-
-  for (int i = 0; i < descriptorSamples_.rows; i++) {
-    const int *coords = descriptorSamples_.ptr<int>(i);
-
+  for (int i = 0; i < descriptorSamples_.rows; i++, coords+=3) {
 
     float di = 0.0f;
     float dx = 0.0f;
@@ -1701,8 +1701,10 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
   CV_DbgAssert(options_.descriptor_channels <= 3);
   float values[(4 + 9 + 16)*3];
 
-  for (int i = 0; i < descriptorSamples_.rows; i++) {
-    const int *coords = descriptorSamples_.ptr<int>(i);
+  // coords[3] is { grid_width, x, y }
+  const int *coords = descriptorSamples_.ptr<int>(0);
+
+  for (int i = 0; i < descriptorSamples_.rows; i++, coords+=3) {
 
     float di = 0.0f;
     float dx = 0.0f;
