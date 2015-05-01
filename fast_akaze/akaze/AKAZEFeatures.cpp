@@ -1595,6 +1595,45 @@ void MLDB_Full_Descriptor_InvokerV2::Get_MLDB_Full_Descriptor(const KeyPoint& kp
   }
 }
 
+
+/* ************************************************************************* */
+/**
+ * @brief This function compares two values specified by comps[] and set the i-th
+ * bit of desc if the comparison is true.
+ * @param values Input array of values to compare
+ * @param comps Input array of indices at which two values are compared
+ * @param nbits The length of values[] as well as the number of bits to write in desc
+ * @param desc Descriptor vector
+ */
+template <typename Typ_ = uint64_t>
+inline void compare_and_pack_descriptor(const float values[], const int *comps, const int nbits, unsigned char *desc)
+{
+  const int nbits_in_bucket = sizeof(Typ_) << 3;
+  const int (*idx)[2] = (const int (*)[2])comps;
+  int written = 0;
+
+  Typ_ bucket = 0;
+  for (int i = 0; i < nbits; i++) {
+
+    bucket <<= 1;
+    if (values[idx[i][0]] > values[idx[i][1]])
+      bucket |= 1;
+
+    if ((i & (nbits_in_bucket - 1)) == (nbits_in_bucket - 1))
+      ((Typ_ *)desc)[written++] = bucket, bucket = 0;
+  }
+
+  // Flush the remaining bits in bucket
+  if (written * nbits_in_bucket < nbits) {
+    written *= sizeof(Typ_);  /* Convert the unit from bucket to byte */
+
+    int remain = (nbits + 7) / 8 - written;
+    for (int i = 0; i < remain; i++)
+      desc[written++] = (uint8_t)(bucket & 0xFF), bucket >>= 8;
+  }
+}
+
+
 /* ************************************************************************* */
 /**
  * @brief This method computes the M-LDB descriptor of the provided keypoint given the
