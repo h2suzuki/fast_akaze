@@ -1705,16 +1705,7 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
   }
 
   // Do the comparisons
-  const int *comps = descriptorBits_.ptr<int>(0);
-
-  for (int i = 0; i<descriptorBits_.rows; i++) {
-    if (values[comps[2 * i]] > values[comps[2 * i + 1]]) {
-      desc[i / 8] |= (1 << (i % 8));
-    }
-    else {
-      desc[i / 8] &= ~(1 << (i % 8));
-    }
-  }
+  compare_and_pack_descriptor<uint64_t>(values, descriptorBits_.ptr<int>(0), descriptorBits_.rows, desc);
 }
 
 /* ************************************************************************* */
@@ -1784,16 +1775,7 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
   }
 
   // Do the comparisons
-  const int *comps = descriptorBits_.ptr<int>(0);
-
-  for (int i = 0; i<descriptorBits_.rows; i++) {
-    if (values[comps[2 * i]] > values[comps[2 * i + 1]]) {
-      desc[i / 8] |= (1 << (i % 8));
-    }
-    else {
-      desc[i / 8] &= ~(1 << (i % 8));
-    }
-  }
+  compare_and_pack_descriptor<uint64_t>(values, descriptorBits_.ptr<int>(0), descriptorBits_.rows, desc);
 }
 
 /* ************************************************************************* */
