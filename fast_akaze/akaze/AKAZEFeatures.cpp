@@ -1688,12 +1688,12 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
  */
 void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subset(const KeyPoint& kpt, unsigned char *desc) const {
 
+  const TEvolutionV2 & e = evolution_[kpt.class_id];
+
   // Get the information from the keypoint
-  float ratio = evolution_[kpt.class_id].octave_ratio;
-  int scale = fRoundV2(0.5f*kpt.size / ratio);
-  int level = kpt.class_id;
-  float yf = kpt.pt.y / ratio;
-  float xf = kpt.pt.x / ratio;
+  int scale = fRoundV2(0.5f*kpt.size / e.octave_ratio);
+  float yf = kpt.pt.y / e.octave_ratio;
+  float xf = kpt.pt.x / e.octave_ratio;
 
   // Matrices for the M-LDB descriptor: the size is [grid size] * [channel size]
   CV_DbgAssert(descriptorSamples_.rows <= (4 + 9 + 16));
@@ -1716,11 +1716,11 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
         int x1 = fRoundV2(xf + x*scale);
         int y1 = fRoundV2(yf + y*scale);
 
-        di += *(evolution_[level].Lt.ptr<float>(y1)+x1);
+        di += *(e.Lt.ptr<float>(y1)+x1);
 
         if (options_.descriptor_channels > 1) {
-          float rx = *(evolution_[level].Lx.ptr<float>(y1)+x1);
-          float ry = *(evolution_[level].Ly.ptr<float>(y1)+x1);
+          float rx = *(e.Lx.ptr<float>(y1)+x1);
+          float ry = *(e.Ly.ptr<float>(y1)+x1);
 
           if (options_.descriptor_channels == 2) {
             dx += sqrtf(rx*rx + ry*ry);
