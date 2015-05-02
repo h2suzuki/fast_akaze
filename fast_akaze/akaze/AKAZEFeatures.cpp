@@ -1608,11 +1608,11 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
   const TEvolutionV2 & e = evolution_[kpt.class_id];
 
   // Get the information from the keypoint
-  int scale = fRoundV2(0.5f*kpt.size / e.octave_ratio);
-  float yf = kpt.pt.y / e.octave_ratio;
-  float xf = kpt.pt.x / e.octave_ratio;
-  float co = cos(kpt.angle);
-  float si = sin(kpt.angle);
+  const int scale = fRoundV2(0.5f*kpt.size / e.octave_ratio);
+  const float yf = kpt.pt.y / e.octave_ratio;
+  const float xf = kpt.pt.x / e.octave_ratio;
+  const float co = cos(kpt.angle);
+  const float si = sin(kpt.angle);
 
   // Matrices for the M-LDB descriptor: the size is [grid size] * [channel size]
   CV_DbgAssert(descriptorSamples_.rows <= (4 + 9 + 16));
@@ -1691,9 +1691,9 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
   const TEvolutionV2 & e = evolution_[kpt.class_id];
 
   // Get the information from the keypoint
-  int scale = fRoundV2(0.5f*kpt.size / e.octave_ratio);
-  float yf = kpt.pt.y / e.octave_ratio;
-  float xf = kpt.pt.x / e.octave_ratio;
+  const int scale = fRoundV2(0.5f*kpt.size / e.octave_ratio);
+  const float yf = kpt.pt.y / e.octave_ratio;
+  const float xf = kpt.pt.x / e.octave_ratio;
 
   // Matrices for the M-LDB descriptor: the size is [grid size] * [channel size]
   CV_DbgAssert(descriptorSamples_.rows <= (4 + 9 + 16));
