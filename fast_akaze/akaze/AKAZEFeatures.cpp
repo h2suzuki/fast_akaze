@@ -1613,7 +1613,6 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
   float xf = kpt.pt.x / e.octave_ratio;
   float co = cos(kpt.angle);
   float si = sin(kpt.angle);
-  int level = kpt.class_id;
 
   // Matrices for the M-LDB descriptor: the size is [grid size] * [channel size]
   CV_DbgAssert(descriptorSamples_.rows <= (4 + 9 + 16));
