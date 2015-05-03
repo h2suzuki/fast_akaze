@@ -250,20 +250,29 @@ public:
     {
       TEvolutionV2 &e = evolution_[i];
 
+      const int total = e.Lsmooth.cols * e.Lsmooth.rows;
+      const float sigma_size = (float)e.sigma_size;
+
+      float *lx = e.Lx.ptr<float>(0);
+      float *ly = e.Ly.ptr<float>(0);
+      float *lxx = e.Lxx.ptr<float>(0);
+      float *lxy = e.Lxy.ptr<float>(0);
+      float *lyy = e.Lyy.ptr<float>(0);
+
       sepFilter2D(e.Lsmooth, e.Lx, CV_32F, e.DxKx, e.DxKy);
-      e.Lx *= e.sigma_size;
+      for (int j = 0; j < total; j++) lx[j] *= sigma_size;
 
       sepFilter2D(e.Lx, e.Lxx, CV_32F, e.DxKx, e.DxKy);
-      e.Lxx *= e.sigma_size;
+      for (int j = 0; j < total; j++) lxx[j] *= sigma_size;
 
       sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
-      e.Lxy *= e.sigma_size;
+      for (int j = 0; j < total; j++) lxy[j] *= sigma_size;
 
       sepFilter2D(e.Lsmooth, e.Ly, CV_32F, e.DyKx, e.DyKy);
-      e.Ly *= e.sigma_size;
+      for (int j = 0; j < total; j++) ly[j] *= sigma_size;
 
       sepFilter2D(e.Ly, e.Lyy, CV_32F, e.DyKx, e.DyKy);
-      e.Lyy *= e.sigma_size;
+      for (int j = 0; j < total; j++) lyy[j] *= sigma_size;
     }
   }
 
