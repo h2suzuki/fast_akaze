@@ -239,34 +239,37 @@ class MultiscaleDerivativesAKAZEInvokerV2 : public ParallelLoopBody
 {
 public:
     explicit MultiscaleDerivativesAKAZEInvokerV2(std::vector<TEvolutionV2>& ev, const AKAZEOptionsV2& opt)
-    : evolution_(&ev)
+    : evolution_(ev)
     , options_(opt)
   {
   }
 
   void operator()(const Range& range) const
   {
-    std::vector<TEvolutionV2>& evolution = *evolution_;
-
     for (int i = range.start; i < range.end; i++)
     {
-      sepFilter2D(evolution[i].Lsmooth, evolution[i].Lx, CV_32F, evolution[i].DxKx, evolution[i].DxKy);
-      sepFilter2D(evolution[i].Lsmooth, evolution[i].Ly, CV_32F, evolution[i].DyKx, evolution[i].DyKy);
-      sepFilter2D(evolution[i].Lx, evolution[i].Lxx, CV_32F, evolution[i].DxKx, evolution[i].DxKy);
-      sepFilter2D(evolution[i].Ly, evolution[i].Lyy, CV_32F, evolution[i].DyKx, evolution[i].DyKy);
-      sepFilter2D(evolution[i].Lx, evolution[i].Lxy, CV_32F, evolution[i].DyKx, evolution[i].DyKy);
+      TEvolutionV2 &e = evolution_[i];
 
-      evolution[i].Lx = evolution[i].Lx*(evolution[i].sigma_size);
-      evolution[i].Ly = evolution[i].Ly*(evolution[i].sigma_size);
-      evolution[i].Lxx = evolution[i].Lxx*(evolution[i].sigma_size * evolution[i].sigma_size);
-      evolution[i].Lxy = evolution[i].Lxy*(evolution[i].sigma_size * evolution[i].sigma_size);
-      evolution[i].Lyy = evolution[i].Lyy*(evolution[i].sigma_size * evolution[i].sigma_size);
+      sepFilter2D(e.Lsmooth, e.Lx, CV_32F, e.DxKx, e.DxKy);
+      e.Lx *= e.sigma_size;
+
+      sepFilter2D(e.Lx, e.Lxx, CV_32F, e.DxKx, e.DxKy);
+      e.Lxx *= e.sigma_size;
+
+      sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
+      e.Lxy *= e.sigma_size;
+
+      sepFilter2D(e.Lsmooth, e.Ly, CV_32F, e.DyKx, e.DyKy);
+      e.Ly *= e.sigma_size;
+
+      sepFilter2D(e.Ly, e.Lyy, CV_32F, e.DyKx, e.DyKy);
+      e.Lyy *= e.sigma_size;
     }
   }
 
 private:
-  std::vector<TEvolutionV2>*  evolution_;
-  AKAZEOptionsV2              options_;
+  std::vector<TEvolutionV2> & evolution_;
+  const AKAZEOptionsV2      & options_;
 };
 
 /* ************************************************************************* */
