@@ -26,7 +26,6 @@
 #include <opencv2/imgproc.hpp>
 
 #include "nldiffusion_functions.h"
-#include <algorithm>
 #include <iostream>
 
 // Namespaces
@@ -236,22 +235,18 @@ float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, s
     if (hmax == 0.0f)
         return 0.03f;  // e.g. a blank image
 
-    // Eliminate the values that fall to hist[0] in order to reduce later sqrtf() by 10% or so
-    const float lower_bound = hmax / (nbins * nbins);
-    auto e = std::remove_if(std::begin(modgs), std::end(modgs),
-                            [lower_bound](float x){ return x < lower_bound; });
-    auto npoints = e - std::begin(modgs);
-
     // Compute the histogram bin number
     p = &modgs[0];
-    for (int i = 0; i < npoints; i++)
-        p[i] = nbins * sqrtf(p[i] / hmax);  // range [1, nbins]
+    for (int i = 0; i < total; i++)
+        p[i] = (nbins - 1) * sqrtf(p[i] / hmax);  // value range [0, nbins-1]
 
     // Count up
     hist.assign(nbins, 0);
-    for (int i = 0; i < npoints; i++)
-        hist[(int)modgs[i] % nbins]++;  // range [0, nbins-1]
-    hist[nbins - 1] += hist[0];
+    for (int i = 0; i < total; i++)
+        hist[(int)modgs[i]]++;
+
+    // Truncate the background
+    int npoints = total - hist[0];
     hist[0] = 0;
 
     // Now find the perc of the histogram percentile
