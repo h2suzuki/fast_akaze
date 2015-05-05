@@ -250,7 +250,7 @@ float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, s
     hist[0] = 0;
 
     // Now find the perc of the histogram percentile
-    int nthreshold = (int)(npoints * perc);
+    const int nthreshold = (int)(npoints * perc);
     int nelements = 0;
     for (int k = 1; k < nbins; k++) {
         if (nelements >= nthreshold)
