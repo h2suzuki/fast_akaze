@@ -130,6 +130,15 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
     fed_tau_by_process_timeV2(evolution_[i].etime - evolution_[i - 1].etime,
                               1, 0.25f, reordering_, tsteps_[i - 1]);
   }
+
+#ifdef AKAZE_USE_CPP11_THREADING
+  tasklist_.resize(2);
+  for (auto &list: tasklist_)
+    list.resize(evolution_.size());
+
+  taskdeps_.resize(evolution_.size());
+#endif
+
 }
 
 
@@ -296,7 +305,75 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response_Single(void) {
  * @note This is parallelized version of Compute_Determinant_Hessian_Response_Single()
  */
 void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
+
+  if (getNumThreads() == 1) {
     Compute_Determinant_Hessian_Response_Single();
+    return;
+  }
+
+  for (auto &dep : taskdeps_)
+    atomic_init(&dep, 0);
+
+  for (size_t i = 0; i < evolution_.size(); i++)
+  {
+    TEvolutionV2 &e = evolution_[i];
+    atomic_int &dep = taskdeps_[i];
+
+    const int total = e.Lsmooth.cols * e.Lsmooth.rows;
+    const float sigma_size = (float)e.sigma_size;
+
+    float *lx = e.Lx.ptr<float>(0);
+    float *lxx = e.Lxx.ptr<float>(0);
+    float *ly = e.Ly.ptr<float>(0);
+    float *lyy = e.Lyy.ptr<float>(0);
+    float *lxy = e.Lxy.ptr<float>(0);
+    float *ldet = e.Ldet.ptr<float>(0);
+
+    tasklist_[0][i] = async([=, &e, &dep]{
+
+      sepFilter2D(e.Lsmooth, e.Ly, CV_32F, e.DyKx, e.DyKy);
+      for (int j = 0; j < total; j++) ly[j] *= sigma_size;
+
+      sepFilter2D(e.Ly, e.Lyy, CV_32F, e.DyKx, e.DyKy);
+      for (int j = 0; j < total; j++) lyy[j] *= sigma_size;
+
+      if (dep.fetch_add(1, memory_order_relaxed) != 1)
+        return; // The other dependency is not ready
+
+      sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
+      for (int j = 0; j < total; j++) {
+        lxy[j] *= sigma_size;
+        ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
+      }
+
+    });
+
+    tasklist_[1][i] = async([=, &e, &dep]{
+
+      sepFilter2D(e.Lsmooth, e.Lx, CV_32F, e.DxKx, e.DxKy);
+      for (int j = 0; j < total; j++) lx[j] *= sigma_size;
+
+      sepFilter2D(e.Lx, e.Lxx, CV_32F, e.DxKx, e.DxKy);
+      for (int j = 0; j < total; j++) lxx[j] *= sigma_size;
+
+      if (dep.fetch_add(1, memory_order_relaxed) != 1)
+        return; // The other dependency is not ready
+
+      sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
+      for (int j = 0; j < total; j++) {
+        lxy[j] *= sigma_size;
+        ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
+      }
+
+    });
+  }
+
+  // Wait till all running tasks finish
+  for (size_t i = 0; i < evolution_.size(); i++)
+  {
+      tasklist_[0][i].get();
+      tasklist_[1][i].get();
+  }
 }
 
 #else

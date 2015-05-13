@@ -15,6 +15,11 @@
 
 #define AKAZE_USE_CPP11_THREADING
 
+#ifdef AKAZE_USE_CPP11_THREADING
+#include <future>
+#include <atomic>
+#endif
+
 #include <opencv2/core.hpp>
 
 #include "AKAZEConfig.h"
@@ -46,6 +51,12 @@ private:
   cv::Mat lflow_, lstep_;
   cv::Mat histgram_, modgs_;
   std::vector<std::vector<cv::KeyPoint>> kpts_aux_;
+
+#ifdef AKAZE_USE_CPP11_THREADING
+  using task = std::future<void>;
+  std::vector<std::vector<task>> tasklist_;
+  std::vector<std::atomic_int> taskdeps_;
+#endif
 
 public:
 
