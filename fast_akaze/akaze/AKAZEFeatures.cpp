@@ -249,7 +249,8 @@ void AKAZEFeaturesV2::Feature_Detection(std::vector<KeyPoint>& kpts)
  * @brief This method computes the feature detector response for the nonlinear scale space
  * @note We use the Hessian determinant as the feature detector response
  */
-void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
+inline
+void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response_Single(void) {
 
     for (size_t i = 0; i < evolution_.size(); i++)
     {
@@ -286,6 +287,25 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
         ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
     }
 }
+
+#ifdef AKAZE_USE_CPP11_THREADING
+
+/* ************************************************************************* */
+/**
+ * @brief This method computes the feature detector response for the nonlinear scale space
+ * @note This is parallelized version of Compute_Determinant_Hessian_Response_Single()
+ */
+void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
+    Compute_Determinant_Hessian_Response_Single();
+}
+
+#else
+
+void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
+    Compute_Determinant_Hessian_Response_Single();
+}
+
+#endif
 
 /* ************************************************************************* */
 /**
