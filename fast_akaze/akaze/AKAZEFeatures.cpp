@@ -18,6 +18,12 @@
 #include <cstdint>
 #include <iostream>
 
+#ifdef AKAZE_USE_CPP11_THREADING
+#include <thread>
+#include <future>
+#include <atomic>
+#endif
+
 // Taken from opencv2/internal.hpp: IEEE754 constants and macros
 #define  CV_TOGGLE_FLT(x) ((x)^((int)(x) < 0 ? 0x7fffffff : 0))
 
@@ -43,6 +49,10 @@ void generateDescriptorSubsampleV2(cv::Mat& sampleList, cv::Mat& comparisons, in
 AKAZEFeaturesV2::AKAZEFeaturesV2(const AKAZEOptionsV2& options) : options_(options) {
 
   cout << "AKAZEFeaturesV2 constructor called" << endl;
+
+#ifdef AKAZE_USE_CPP11_THREADING
+  cout << "hardware_concurrency: " << thread::hardware_concurrency() << endl;
+#endif
 
   reordering_ = true;
 

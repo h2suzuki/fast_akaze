@@ -13,6 +13,8 @@
 // Includes
 #include <vector>
 
+#define AKAZE_USE_CPP11_THREADING
+
 #include <opencv2/core.hpp>
 
 #include "AKAZEConfig.h"
