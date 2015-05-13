@@ -261,8 +261,8 @@ void AKAZEFeaturesV2::Feature_Detection(std::vector<KeyPoint>& kpts)
 inline
 void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response_Single(void) {
 
-    for (size_t i = 0; i < evolution_.size(); i++)
-    {
+  for (size_t i = 0; i < evolution_.size(); i++)
+  {
       TEvolutionV2 &e = evolution_[i];
 
       const int total = e.Lsmooth.cols * e.Lsmooth.rows;
@@ -294,7 +294,7 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response_Single(void) {
       // Compute Ldet by Lxx.mul(Lyy) - Lxy.mul(Lxy)
       for (int j = 0; j < total; j++)
         ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
-    }
+  }
 }
 
 #ifdef AKAZE_USE_CPP11_THREADING
