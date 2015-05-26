@@ -284,9 +284,7 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
       evolution_[i - 1].Lt.copyTo(evolution_[i].Lt);
     }
 
-    // Compute Ldet; if possible do it in parallel to FED cycles
     gaussian_2D_convolutionV2(evolution_[i].Lt, evolution_[i].Lsmooth, 0, 0, 1.0f);
-    Compute_Determinant_Hessian_Response((int)i);
 
 #ifdef AKAZE_USE_CPP11_THREADING
     if (kcontrast_.valid())
@@ -295,6 +293,9 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
 
     // Compute the Gaussian derivatives Lx and Ly
     image_derivatives(evolution_[i].Lsmooth, Lx, Ly);
+
+    // Compute the Hessian for feature detection
+    Compute_Determinant_Hessian_Response((int)i);
 
     // Compute the conductivity equation Lflow
     switch (options_.diffusivity) {
