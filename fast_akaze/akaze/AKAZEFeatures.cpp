@@ -612,7 +612,8 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
     // Clear the workspace to hold the keypoint candidates
     kpts_aux_[i].clear();
 
-    tasklist_[0][i] = async(launch::async, [&step,&kpts,smax,i](const AKAZEOptionsV2 &opt)
+    auto mode = (i > 0? launch::async : launch::deferred);
+    tasklist_[0][i] = async(mode, [&step,&kpts,smax,i](const AKAZEOptionsV2 &opt)
     {
 
       // Descriptors cannot be computed for the points on the border; exclude them first
