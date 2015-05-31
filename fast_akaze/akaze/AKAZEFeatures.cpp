@@ -18,10 +18,18 @@
 #include <cstdint>
 #include <iostream>
 
+//#define AKAZE_USE_CVMARKER
+
+
 #ifdef AKAZE_USE_CPP11_THREADING
 #include <thread>
 #include <future>
 #include <atomic>
+#endif
+
+#ifdef AKAZE_USE_CVMARKER
+#include "cvmarkersobj.h"
+#include <atlstr.h>
 #endif
 
 // Taken from opencv2/internal.hpp: IEEE754 constants and macros
@@ -31,6 +39,12 @@
 namespace cv
 {
 using namespace std;
+
+
+#ifdef AKAZE_USE_CVMARKER
+using namespace Concurrency::diagnostic;
+marker_series cv_series;
+#endif
 
 
 /// Internal Functions
@@ -159,7 +173,16 @@ void image_derivatives(const cv::Mat& Lsmooth, cv::Mat& Lx, cv::Mat& Ly)
   int n = (Lsmooth.rows * Lsmooth.cols) / (1 << 15) + 1;
 
   if (getNumThreads() > 1 && n > 1) {
+#ifdef AKAZE_USE_CVMARKER
+    span s(cv_series, _T("derivatives:Ly"));
+
+    auto task = async(launch::async, [&]{
+        span s(cv_series, _T("derivatives:Lx"));
+        image_derivatives_scharrV2(Lsmooth, Lx, 1, 0);
+    });
+#else
     auto task = async(launch::async, image_derivatives_scharrV2, Lsmooth, Lx, 1, 0);
+#endif
 
     image_derivatives_scharrV2(Lsmooth, Ly, 0, 1);
     task.get();
@@ -200,6 +223,9 @@ float AKAZEFeaturesV2::Compute_Base_Evolution_Level(const cv::Mat& img)
     e0_Lsmooth.get();
     Compute_Determinant_Hessian_Response(0);
 
+#ifdef AKAZE_USE_CVMARKER
+    span s(cv_series, _T("copy Lt:0"));
+#endif
     evolution_[0].Lsmooth.copyTo(evolution_[0].Lt);
     return 1.0f;
   }
@@ -230,6 +256,10 @@ float AKAZEFeaturesV2::Compute_Base_Evolution_Level(const cv::Mat& img)
 int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
 {
   CV_Assert(evolution_.size() > 0);
+
+#ifdef AKAZE_USE_CVMARKER
+  cv_series.write_flag(_T("Create_NSS"));
+#endif
 
   // Setup the gray-scale image
   const Mat * gray = &img;
@@ -270,6 +300,10 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
   // Now generate the rest of evolution levels
   for (size_t i = 1; i < evolution_.size(); i++) {
 
+#ifdef AKAZE_USE_CVMARKER
+    cv_series.write_flag(CString{ _T("Create_NSS Level:") } +to_string(i).c_str());
+#endif
+
     if (evolution_[i].octave > evolution_[i - 1].octave) {
       halfsample_imageV2(evolution_[i - 1].Lt, evolution_[i].Lt);
       kcontrast = kcontrast*0.75f;
@@ -281,6 +315,9 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
       Lstep = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, lstep_.data);
     }
     else {
+#ifdef AKAZE_USE_CVMARKER
+    span s(cv_series, CString{ _T("copy Lt:") } +to_string(i).c_str());
+#endif
       evolution_[i - 1].Lt.copyTo(evolution_[i].Lt);
     }
 
@@ -315,6 +352,10 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
         CV_Error(options_.diffusivity, "Diffusivity is not supported");
       break;
     }
+
+#ifdef AKAZE_USE_CVMARKER
+    span s(cv_series, _T("FED"));
+#endif
 
     // Perform Fast Explicit Diffusion on Lt
     const int total = Lstep.rows * Lstep.cols;
@@ -398,6 +439,10 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response_Single(const int leve
  */
 void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(const int level) {
 
+#ifdef AKAZE_USE_CVMARKER
+    cv_series.write_flag(CString{ _T("Hessian:") } +to_string(level).c_str());
+#endif
+
   if (getNumThreads() == 1) {
     Compute_Determinant_Hessian_Response_Single(level);
     return;
@@ -416,6 +461,10 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(const int level) {
 
   tasklist_[0][level] = async([=, &e, &dep]{
 
+#ifdef AKAZE_USE_CVMARKER
+    span s(cv_series, (CString{ _T("Lyy:") } +to_string(level).c_str()));
+#endif
+
     sepFilter2D(e.Lsmooth, e.Ly, CV_32F, e.DyKx, e.DyKy);
     sepFilter2D(e.Ly, e.Lyy, CV_32F, e.DyKx, e.DyKy);
 
@@ -429,6 +478,10 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(const int level) {
   });
 
   tasklist_[1][level] = async([=, &e, &dep]{
+
+#ifdef AKAZE_USE_CVMARKER
+    span s(cv_series, (CString{ _T("Lxx:") } +to_string(level).c_str()));
+#endif
 
     sepFilter2D(e.Lsmooth, e.Lx, CV_32F, e.DxKx, e.DxKy);
     sepFilter2D(e.Lx, e.Lxx, CV_32F, e.DxKx, e.DxKy);
@@ -591,6 +644,10 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoin
  */
 void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kpts_aux)
 {
+#ifdef AKAZE_USE_CVMARKER
+  span s(cv_series, _T("Find_SS_Extrema"));
+#endif
+
   if (getNumThreads() == 1) {
     Find_Scale_Space_Extrema_Single(kpts_aux);
     return;
@@ -615,6 +672,10 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
     auto mode = (i > 0? launch::async : launch::deferred);
     tasklist_[0][i] = async(mode, [&step,&kpts,smax,i](const AKAZEOptionsV2 &opt)
     {
+
+#ifdef AKAZE_USE_CVMARKER
+      span s(cv_series, CString{ _T("Find_SS:") } +to_string(i).c_str());
+#endif
 
       // Descriptors cannot be computed for the points on the border; exclude them first
       const int border = fRoundV2(smax * step.sigma_size) + 1;
@@ -705,6 +766,10 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
 #else
 
 void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kpts_aux) {
+#ifdef AKAZE_USE_CVMARKER
+  span s(cv_series, _T("Find_SS_Extrema"));
+#endif
+
   Find_Scale_Space_Extrema_Single(kpts_aux);
 }
 
@@ -719,6 +784,10 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
  */
 void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<std::vector<KeyPoint>>& kpts_aux, std::vector<KeyPoint>& kpts)
 {
+#ifdef AKAZE_USE_CVMARKER
+  span s(cv_series, _T("Do_Subpixel_Refinement"));
+#endif
+
   // Clear the keypoint vector
   kpts.clear();
 
@@ -1205,6 +1274,10 @@ void quantized_counting_sort(const float a[], const int n,
 inline
 void Compute_Main_Orientation(KeyPoint& kpt, const TEvolutionV2& e)
 {
+#ifdef AKAZE_USE_CVMARKER
+  span s(cv_series, _T("Compute_Main_Orientation"));
+#endif
+
   // Get the information from the keypoint
   int scale = fRoundV2(0.5f * kpt.size / e.octave_ratio);
   int x0 = fRoundV2(kpt.pt.x / e.octave_ratio);
@@ -1926,6 +1999,10 @@ inline void compare_and_pack_descriptor(const float values[], const int *comps, 
  * @param desc Descriptor vector
  */
 void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint& kpt, unsigned char *desc) const {
+
+#ifdef AKAZE_USE_CVMARKER
+  span s(cv_series, _T("Get_MLDB_Descriptor_Subset"));
+#endif
 
   const TEvolutionV2 & e = evolution_[kpt.class_id];
 

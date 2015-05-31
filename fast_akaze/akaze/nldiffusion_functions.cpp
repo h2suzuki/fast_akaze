@@ -30,6 +30,13 @@
 #include <cstring>
 #include <iostream>
 
+//#define AKAZE_USE_CVMARKER
+
+#ifdef AKAZE_USE_CVMARKER
+#include "cvmarkersobj.h"
+#include <atlstr.h>
+#endif
+
 // Namespaces
 
 /* ************************************************************************* */
@@ -37,6 +44,11 @@
 namespace cv
 {
 using namespace std;
+
+#ifdef AKAZE_USE_CVMARKER
+using namespace Concurrency::diagnostic;
+extern marker_series cv_series;
+#endif
 
 /* ************************************************************************* */
 /**
@@ -48,6 +60,10 @@ using namespace std;
  * @param sigma Kernel standard deviation
  */
 void gaussian_2D_convolutionV2(const cv::Mat& src, cv::Mat& dst, int ksize_x, int ksize_y, float sigma) {
+
+#ifdef AKAZE_USE_CVMARKER
+  span s(cv_series, _T("GaussianBlur"));
+#endif
 
     int ksize_x_ = 0, ksize_y_ = 0;
 
@@ -123,6 +139,10 @@ void pm_g1V2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
  */
 void pm_g2V2(const cv::Mat &Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
 
+#ifdef AKAZE_USE_CVMARKER
+  span s(cv_series, _T("pm_g2"));
+#endif
+
   // Compute: dst = 1.0f / (1.0f + ((Lx.mul(Lx) + Ly.mul(Ly)) / (k * k)) );
 
   const float inv_k2 = 1.0f / (k * k);
@@ -155,6 +175,9 @@ void weickert_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, 
 
   const int total = Lx.rows * Lx.cols;
   const float* lx = Lx.ptr<float>(0);
+#ifdef AKAZE_USE_CVMARKER
+  span s(cv_series, _T("Create_NSS Wait"));
+#endif
   const float* ly = Ly.ptr<float>(0);
   float* d = dst.ptr<float>(0);
 
@@ -212,6 +235,10 @@ void charbonnier_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& ds
  */
 float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, cv::Mat& modgs, cv::Mat& histogram) {
 
+#ifdef AKAZE_USE_CVMARKER
+  span s(cv_series, _T("compute_k_percentile"));
+#endif
+
     const int total = modgs.cols;
     const int nbins = histogram.cols;
 
@@ -239,6 +266,10 @@ float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, c
 
     if (hmax == 0.0f)
         return 0.03f;  // e.g. a blank image
+
+#ifdef AKAZE_USE_CVMARKER
+    cv_series.write_flag(_T("bin counting"));
+#endif
 
     // Compute the bin numbers: the value range [0, hmax] -> [0, nbins-1]
     for (int i = 0; i < total; i++)
@@ -421,6 +452,10 @@ void nld_step_scalarV2(const cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep)
 * @param dst Output image with half of the resolution of the input image
 */
 void halfsample_imageV2(const cv::Mat& src, cv::Mat& dst) {
+
+#ifdef AKAZE_USE_CVMARKER
+  span s(cv_series, _T("halfsample"));
+#endif
 
     // Make sure the destination image is of the right size
     CV_Assert(src.cols / 2 == dst.cols);
