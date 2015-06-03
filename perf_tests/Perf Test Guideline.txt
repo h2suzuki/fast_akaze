@@ -1,0 +1,75 @@
+
+# Performance Test Guideline  Rev.1.0
+
+
+## Test Environment
+
+  - CPU: Intel Core i7-4770 3.40GHz (4C/8T, L3 8MB, SSE4.1/4.2, AVX2.0)
+  - RAM: 2x 8GB DDR3-1600 (12.8GB/s per module)
+  - OS: 64-bit Windows 7 SP1
+  - IDE: Visual Studio 2013
+  - Webcam: Logicool C525 (640x480 30fps, FOV 69 degree)
+
+
+## The code base of AKAZE
+
+  OpenCV3 Beta
+    Commit: ac22c524 / 2015-04-06 03:01:17
+
+
+## Test Scenario
+
+  1. Stop the other applications (except for Visual Studio 2013)
+     Open the task manager to watch out unintentional background processes.
+  2. Start this program without debugging (Ctrl-F5).
+  3. Press "t" to switch to the tracking mode after AKAZE threshold tuning becomes stable.
+     The number of key points are around 150 in this experiment, while the number of matched
+     keypoints is around 140.
+  4. Keep this program running for more than two minutes i.e. 24 stats lines.  Then, stop.
+     If AKAZE threshold changes during the period, ignore this measurement period and
+     take the new period after the threshold becomes stable.
+  5. Drop the three best and the three worst "interval" fps
+  6. Average the remaining 18 fps lines to obtain the test results
+
+
+## Test Targets
+
+  a. Debug configuration, 64-bit build, single thread
+  b. Debug configuration, 64-bit build, eight threads
+  c. Release configuration, 64-bit build, single thread
+  d. Release configuration, 64-bit build, eight threads
+
+
+## Test Runs
+
+  R0: OpenCV3 included AKAZE(DLL) with the default setting - i.e. control
+  R1: AKAZE2 (the local variant) with the default setting
+  R2: AKAZE2 with VS2013 auto-vectorization and fast floating math
+  R3: Make AKAZEFeature persistent
+  R4: Change Mat::zeros() to either Mat::create() or Mat::Mat()
+  R5: Remove temporary variables on heap by preallocation, allocation on stack, or pre-calculation
+  R6: Optimize the memory copies
+  R7: Make heavy loops more auto-vectorizer and FMA friendly
+  R8: Refactor heavy functions
+
+    R8.1: compute_k_percentile
+    R8.2: nld_step_scalar
+    R8.3: Find_Scale_Space_Extrema
+    R8.4: Do_Subpixel_Refinement
+    R8.5: Compute_Main_Orientation
+    R8.6: Get_MLDB_Descriptor_Subset and Get_Upright_MLDB_Descriptor_Subset
+    R8.7: Compute_Determinant_Hessian_Response
+    R8.8: compute_k_percentile (revisited)
+
+  R9: Optimize parallelization
+
+    R9.1: Remove OpenMP spin wait and set the stride size for Compute_Descriptors
+    R9.2: Compute_Determinant_Hessian_Response
+    R9.3: Create_Nonlinear_Scale_Space
+    R9.4: Tune the stride size of Compute_Descriptors
+    R9.5: Find_Scale_Space_Extrema
+
+  R10: Vary the number of threads
+  R11: Combine sepFilter2D and scaling
+
+END.

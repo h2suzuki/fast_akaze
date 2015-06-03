@@ -33,4 +33,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\perf_tests\Perf Test Guideline.txt">
+      <Filter>Test Results</Filter>
+    </Text>
+  </ItemGroup>
 </Project>
