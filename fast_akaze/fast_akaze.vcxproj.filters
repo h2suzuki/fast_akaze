@@ -85,5 +85,8 @@
     <Text Include="..\perf_tests\R2 - AKAZE2 with VS2013 compiler option tweaking.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R3 - Make AKAZEFeature persistent.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>
