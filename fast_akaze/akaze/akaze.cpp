@@ -50,7 +50,7 @@ http://www.robesafe.com/personal/pablo.alcantarilla/papers/Alcantarilla13bmvc.pd
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
-#include "../features2d_akaze2.hpp"  /* Define AKAZE2; use it instead of <opencv2/features2d.hpp> */
+#include "../features2d_akaze2.hpp"  // Define AKAZE2; included in place of <opencv2/features2d.hpp>
 
 #include "AKAZEFeatures.h"
 
