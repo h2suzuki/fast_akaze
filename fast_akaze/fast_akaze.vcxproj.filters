@@ -37,5 +37,8 @@
     <Text Include="..\perf_tests\Perf Test Guideline.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R0 - OpenCV3 included AKAZE.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>
