@@ -92,7 +92,7 @@ namespace cv
         void setDescriptorChannels(int dch_) { descriptor_channels = dch_; impl.release(); }
         int getDescriptorChannels() const { return descriptor_channels; }
 
-        void setThreshold(double threshold_) { threshold = (float)threshold_; impl.release(); }
+        void setThreshold(double th_) { threshold = (float)th_; if (!impl.empty()) impl->setThreshold(th_); }
         double getThreshold() const { return threshold; }
 
         void setNOctaves(int octaves_) { octaves = octaves_; impl.release(); }
@@ -101,7 +101,7 @@ namespace cv
         void setNOctaveLayers(int octaveLayers_) { sublevels = octaveLayers_; impl.release(); }
         int getNOctaveLayers() const { return sublevels; }
 
-        void setDiffusivity(int diff_) { diffusivity = diff_; impl.release(); }
+        void setDiffusivity(int diff_) { diffusivity = diff_; if (!impl.empty()) impl->setDiffusivity(diff_); }
         int getDiffusivity() const { return diffusivity; }
 
         // returns the descriptor size in bytes
