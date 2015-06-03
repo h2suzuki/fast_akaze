@@ -16,6 +16,12 @@
     <Filter Include="Test Results">
       <UniqueIdentifier>{228a8dc6-b80b-498c-9c71-2ec714e7ec51}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\AKAZE">
+      <UniqueIdentifier>{5e7b21f8-a428-42d8-ba2d-0b1965ebb21a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\AKAZE">
+      <UniqueIdentifier>{21ca4740-2096-44ed-9508-a19c9f787ace}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="targetver.h">
@@ -27,10 +33,40 @@
     <ClInclude Include="fps_stats.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="akaze\AKAZEConfig.h">
+      <Filter>Header Files\AKAZE</Filter>
+    </ClInclude>
+    <ClInclude Include="akaze\AKAZEFeatures.h">
+      <Filter>Header Files\AKAZE</Filter>
+    </ClInclude>
+    <ClInclude Include="akaze\fed.h">
+      <Filter>Header Files\AKAZE</Filter>
+    </ClInclude>
+    <ClInclude Include="akaze\nldiffusion_functions.h">
+      <Filter>Header Files\AKAZE</Filter>
+    </ClInclude>
+    <ClInclude Include="akaze\TEvolution.h">
+      <Filter>Header Files\AKAZE</Filter>
+    </ClInclude>
+    <ClInclude Include="akaze\utils.h">
+      <Filter>Header Files\AKAZE</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="akaze\akaze.cpp">
+      <Filter>Source Files\AKAZE</Filter>
+    </ClCompile>
+    <ClCompile Include="akaze\AKAZEFeatures.cpp">
+      <Filter>Source Files\AKAZE</Filter>
+    </ClCompile>
+    <ClCompile Include="akaze\fed.cpp">
+      <Filter>Source Files\AKAZE</Filter>
+    </ClCompile>
+    <ClCompile Include="akaze\nldiffusion_functions.cpp">
+      <Filter>Source Files\AKAZE</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -82,11 +82,21 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="akaze\AKAZEConfig.h" />
+    <ClInclude Include="akaze\AKAZEFeatures.h" />
+    <ClInclude Include="akaze\fed.h" />
+    <ClInclude Include="akaze\nldiffusion_functions.h" />
+    <ClInclude Include="akaze\TEvolution.h" />
+    <ClInclude Include="akaze\utils.h" />
     <ClInclude Include="barter.hpp" />
     <ClInclude Include="fps_stats.hpp" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="akaze\akaze.cpp" />
+    <ClCompile Include="akaze\AKAZEFeatures.cpp" />
+    <ClCompile Include="akaze\fed.cpp" />
+    <ClCompile Include="akaze\nldiffusion_functions.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
