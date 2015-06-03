@@ -73,6 +73,7 @@ namespace cv
         , sublevels(_sublevels)
         , diffusivity(_diffusivity)
         {
+          cout << "AKAZE_Impl2 constructor called" << endl;
         }
 
         virtual ~AKAZE_Impl2()
