@@ -110,6 +110,7 @@
     <Text Include="..\perf_tests\Perf Test Guideline.txt" />
     <Text Include="..\perf_tests\R0 - OpenCV3 included AKAZE.txt" />
     <Text Include="..\perf_tests\R1 - AKAZE2 with the default setting.txt" />
+    <Text Include="..\perf_tests\R2 - AKAZE2 with VS2013 compiler option tweaking.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
