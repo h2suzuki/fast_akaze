@@ -354,24 +354,24 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
     const float * curr = evolution_[i].Ldet.ptr<float>(border    );
     const float * next = evolution_[i].Ldet.ptr<float>(border + 1);
 
-    for (int ix = border; ix < evolution_[i].Ldet.rows - border; ix++) {
+    for (int y = border; y < evolution_[i].Ldet.rows - border; y++) {
 
-      for (int jx = border; jx < evolution_[i].Ldet.cols - border; jx++) {
+      for (int x = border; x < evolution_[i].Ldet.cols - border; x++) {
 
-        const float value = curr[jx];
+        const float value = curr[x];
 
         // Filter the points with the detector threshold
         if (value <= options_.dthreshold || value < options_.min_dthreshold)
           continue;
-        if (value <= curr[jx-1] || value <= curr[jx+1])
+        if (value <= curr[x-1] || value <= curr[x+1])
           continue;
-        if (value <= prev[jx-1] || value <= prev[jx] || value <= prev[jx+1])
+        if (value <= prev[x-1] || value <= prev[x  ] || value <= prev[x+1])
           continue;
-        if (value <= next[jx-1] || value <= next[jx] || value <= next[jx+1])
+        if (value <= next[x-1] || value <= next[x  ] || value <= next[x+1])
           continue;
 
-        KeyPoint point( /* x */ static_cast<float>(jx * evolution_[i].octave_ratio),
-                        /* y */ static_cast<float>(ix * evolution_[i].octave_ratio),
+        KeyPoint point( /* x */ static_cast<float>(x * evolution_[i].octave_ratio),
+                        /* y */ static_cast<float>(y * evolution_[i].octave_ratio),
                         /* size */ evolution_[i].esigma*options_.derivative_factor,
                         /* angle */ -1,
                         /* response */ fabs(value),
@@ -398,12 +398,12 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 
         kpts_aux_[i].push_back(point);  // A good keypoint candidate is found
 
-      } // for jx
+      }
       prev = curr;
       curr = next;
       next += evolution_[i].Ldet.cols;
-    } // for ix
-  } // for i
+    }
+  }
 
   // Now filter points with the upper scale level
   for (int i = 0; i < (int)kpts_aux_.size() - 1; i++) {
