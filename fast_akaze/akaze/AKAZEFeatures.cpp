@@ -1120,10 +1120,12 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
   const AKAZEOptionsV2 & options = *options_;
   const std::vector<TEvolutionV2>& evolution = *evolution_;
 
-  // Matrices for the M-LDB descriptor
-  Mat values_1(4, options.descriptor_channels, CV_32FC1);
-  Mat values_2(9, options.descriptor_channels, CV_32FC1);
-  Mat values_3(16, options.descriptor_channels, CV_32FC1);
+  CV_DbgAssert(options.descriptor_channels <= 3);
+
+  // Matrices for the M-LDB descriptor: the dimensions are [grid size] by [channel size]
+  float values_1[4][3];
+  float values_2[9][3];
+  float values_3[16][3];
 
   // Get the information from the keypoint
   ratio = (float)(1 << kpt.octave);
@@ -1166,9 +1168,9 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       dx /= nsamples;
       dy /= nsamples;
 
-      *(values_1.ptr<float>(dcount2)) = di;
-      *(values_1.ptr<float>(dcount2)+1) = dx;
-      *(values_1.ptr<float>(dcount2)+2) = dy;
+      values_1[dcount2][0] = di;
+      values_1[dcount2][1] = dx;
+      values_1[dcount2][2] = dy;
       dcount2++;
     }
   }
@@ -1176,7 +1178,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
   // Do binary comparison first level
   for (int i = 0; i < 4; i++) {
     for (int j = i + 1; j < 4; j++) {
-      if (*(values_1.ptr<float>(i)) > *(values_1.ptr<float>(j))) {
+      if (values_1[i][0] > values_1[j][0]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1184,7 +1186,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       }
       dcount1++;
 
-      if (*(values_1.ptr<float>(i)+1) > *(values_1.ptr<float>(j)+1)) {
+      if (values_1[i][1] > values_1[j][1]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1192,7 +1194,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       }
       dcount1++;
 
-      if (*(values_1.ptr<float>(i)+2) > *(values_1.ptr<float>(j)+2)) {
+      if (values_1[i][2] > values_1[j][2]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1236,9 +1238,9 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       dx /= nsamples;
       dy /= nsamples;
 
-      *(values_2.ptr<float>(dcount2)) = di;
-      *(values_2.ptr<float>(dcount2)+1) = dx;
-      *(values_2.ptr<float>(dcount2)+2) = dy;
+      values_2[dcount2][0] = di;
+      values_2[dcount2][1] = dx;
+      values_2[dcount2][2] = dy;
       dcount2++;
     }
   }
@@ -1247,7 +1249,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
   dcount2 = 0;
   for (int i = 0; i < 9; i++) {
     for (int j = i + 1; j < 9; j++) {
-      if (*(values_2.ptr<float>(i)) > *(values_2.ptr<float>(j))) {
+      if (values_2[i][0] > values_2[j][0]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1255,7 +1257,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       }
       dcount1++;
 
-      if (*(values_2.ptr<float>(i)+1) > *(values_2.ptr<float>(j)+1)) {
+      if (values_2[i][1] > values_2[j][1]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1263,7 +1265,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       }
       dcount1++;
 
-      if (*(values_2.ptr<float>(i)+2) > *(values_2.ptr<float>(j)+2)) {
+      if (values_2[i][2] > values_2[j][2]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1307,9 +1309,9 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       dx /= nsamples;
       dy /= nsamples;
 
-      *(values_3.ptr<float>(dcount2)) = di;
-      *(values_3.ptr<float>(dcount2)+1) = dx;
-      *(values_3.ptr<float>(dcount2)+2) = dy;
+      values_3[dcount2][0] = di;
+      values_3[dcount2][1] = dx;
+      values_3[dcount2][2] = dy;
       dcount2++;
     }
   }
@@ -1318,7 +1320,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
   dcount2 = 0;
   for (int i = 0; i < 16; i++) {
     for (int j = i + 1; j < 16; j++) {
-      if (*(values_3.ptr<float>(i)) > *(values_3.ptr<float>(j))) {
+      if (values_3[i][0] > values_3[j][0]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1326,7 +1328,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       }
       dcount1++;
 
-      if (*(values_3.ptr<float>(i)+1) > *(values_3.ptr<float>(j)+1)) {
+      if (values_3[i][1] > values_3[j][1]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1334,7 +1336,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       }
       dcount1++;
 
-      if (*(values_3.ptr<float>(i)+2) > *(values_3.ptr<float>(j)+2)) {
+      if (values_3[i][2] > values_3[j][2]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1487,17 +1489,20 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
   float si = sin(angle);
 
   // Allocate memory for the matrix of values
-  Mat values((4 + 9 + 16)*options.descriptor_channels, 1, CV_32FC1);
+  CV_DbgAssert(options.descriptor_channels <= 3);
+  float values[(4 + 9 + 16)*3];
 
   // Sample everything, but only do the comparisons
-  vector<int> steps(3);
-  steps.at(0) = options.descriptor_pattern_size;
-  steps.at(1) = (int)ceil(2.f*options.descriptor_pattern_size / 3.f);
-  steps.at(2) = options.descriptor_pattern_size / 2;
+  const int steps[3] = { options.descriptor_pattern_size,
+                         (int)ceil(2.f*options.descriptor_pattern_size / 3.f),
+                         options.descriptor_pattern_size / 2 };
 
   for (int i = 0; i < descriptorSamples_.rows; i++) {
     const int *coords = descriptorSamples_.ptr<int>(i);
-    int sample_step = steps.at(coords[0]);
+
+    CV_DbgAssert(0 <= coords[0] && coords[0] < 3);
+    int sample_step = steps[coords[0]];
+
     di = 0.0f;
     dx = 0.0f;
     dy = 0.0f;
@@ -1530,23 +1535,22 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
       }
     }
 
-    *(values.ptr<float>(options.descriptor_channels*i)) = di;
+    values[i * options.descriptor_channels] = di;
 
     if (options.descriptor_channels == 2) {
-      *(values.ptr<float>(options.descriptor_channels*i + 1)) = dx;
+      values[i * options.descriptor_channels + 1] = dx;
     }
     else if (options.descriptor_channels == 3) {
-      *(values.ptr<float>(options.descriptor_channels*i + 1)) = dx;
-      *(values.ptr<float>(options.descriptor_channels*i + 2)) = dy;
+      values[i * options.descriptor_channels + 1] = dx;
+      values[i * options.descriptor_channels + 2] = dy;
     }
   }
 
   // Do the comparisons
-  const float *vals = values.ptr<float>(0);
   const int *comps = descriptorBits_.ptr<int>(0);
 
   for (int i = 0; i<descriptorBits_.rows; i++) {
-    if (vals[comps[2 * i]] > vals[comps[2 * i + 1]]) {
+    if (values[comps[2 * i]] > values[comps[2 * i + 1]]) {
       desc[i / 8] |= (1 << (i % 8));
     }
     else {
@@ -1581,16 +1585,18 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
   float xf = kpt.pt.x / ratio;
 
   // Allocate memory for the matrix of values
-  Mat values((4 + 9 + 16)*options.descriptor_channels, 1, CV_32FC1);
+  CV_DbgAssert(options.descriptor_channels <= 3);
+  float values[(4 + 9 + 16)*3];
 
-  vector<int> steps(3);
-  steps.at(0) = options.descriptor_pattern_size;
-  steps.at(1) = static_cast<int>(ceil(2.f*options.descriptor_pattern_size / 3.f));
-  steps.at(2) = options.descriptor_pattern_size / 2;
+  int steps[3] = { options.descriptor_pattern_size,
+                   static_cast<int>(ceil(2.f*options.descriptor_pattern_size / 3.f)),
+                   options.descriptor_pattern_size / 2 };
 
   for (int i = 0; i < descriptorSamples_.rows; i++) {
     const int *coords = descriptorSamples_.ptr<int>(i);
-    int sample_step = steps.at(coords[0]);
+    CV_DbgAssert(0 <= coords[0] && coords[0] < 3);
+
+    int sample_step = steps[coords[0]];
     di = 0.0f, dx = 0.0f, dy = 0.0f;
 
     for (int k = coords[1]; k < coords[1] + sample_step; k++) {
@@ -1619,23 +1625,22 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
       }
     }
 
-    *(values.ptr<float>(options.descriptor_channels*i)) = di;
+    values[i * options.descriptor_channels] = di;
 
     if (options.descriptor_channels == 2) {
-      *(values.ptr<float>(options.descriptor_channels*i + 1)) = dx;
+      values[i * options.descriptor_channels + 1] = dx;
     }
     else if (options.descriptor_channels == 3) {
-      *(values.ptr<float>(options.descriptor_channels*i + 1)) = dx;
-      *(values.ptr<float>(options.descriptor_channels*i + 2)) = dy;
+      values[i * options.descriptor_channels + 1] = dx;
+      values[i * options.descriptor_channels + 2] = dy;
     }
   }
 
   // Do the comparisons
-  const float *vals = values.ptr<float>(0);
   const int *comps = descriptorBits_.ptr<int>(0);
 
   for (int i = 0; i<descriptorBits_.rows; i++) {
-    if (vals[comps[2 * i]] > vals[comps[2 * i + 1]]) {
+    if (values[comps[2 * i]] > values[comps[2 * i + 1]]) {
       desc[i / 8] |= (1 << (i % 8));
     }
     else {
@@ -1661,12 +1666,18 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
 void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
                                  int pattern_size, int nchannels) {
 
-  int ssz = 0;
+#if 0
+  // Replaced by an immediate to use stack; need C++11 constexpr to use the logic
+  int fullM_rows = 0;
   for (int i = 0; i < 3; i++) {
     int gz = (i + 2)*(i + 2);
-    ssz += gz*(gz - 1) / 2;
+    fullM_rows += gz*(gz - 1) / 2;
   }
-  ssz *= nchannels;
+#else
+  const int fullM_rows = 162;
+#endif
+
+  int ssz = fullM_rows * nchannels; // ssz is 486 when nchannels is 3
 
   CV_Assert(nbits <= ssz); // Descriptor size can't be bigger than full descriptor
 
@@ -1675,7 +1686,9 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
   // pick as the number of channels. For every pick, we
   // take the two samples involved and put them in the sampling list
 
-  Mat_<int> fullM(ssz / nchannels, 5);
+  int fullM_stack[fullM_rows * 5]; // About 6.3KB workspace with 64-bit int on stack
+  Mat_<int> fullM(fullM_rows, 5, fullM_stack);
+
   for (int i = 0, c = 0; i < 3; i++) {
     int gdiv = i + 2; //grid divisions, per row
     int gsz = gdiv*gdiv;
@@ -1692,19 +1705,21 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
     }
   }
 
-  srand(1024);
-  Mat_<int> comps = Mat_<int>(nchannels * (int)ceil(nbits / (float)nchannels), 2);
+  int comps_stack[486 * 2]; // About 7.6KB workspace with 64-bit int on stack
+  Mat_<int> comps(nchannels * (int)ceil(nbits / (float)nchannels), 2, comps_stack);
   comps = 1000;
+
+  int samples_stack[(4 + 9 + 16) * 3]; // 696 bytes workspace with 64-bit int on stack
+  Mat_<int> samples((4 + 9 + 16), 3, samples_stack);
 
   // Select some samples. A sample includes all channels
   int count = 0;
   int npicks = (int)ceil(nbits / (float)nchannels);
-  Mat_<int> samples(29, 3);
-  Mat_<int> fullcopy = fullM.clone();
   samples = -1;
 
+  srand(1024);
   for (int i = 0; i < npicks; i++) {
-    int k = rand() % (fullM.rows - i);
+    int k = rand() % (fullM_rows - i);
     if (i < 6) {
       // Force use of the coarser grid values and comparisons
       k = i;
@@ -1713,7 +1728,7 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
     bool n = true;
 
     for (int j = 0; j < count; j++) {
-      if (samples(j, 0) == fullcopy(k, 0) && samples(j, 1) == fullcopy(k, 1) && samples(j, 2) == fullcopy(k, 2)) {
+      if (samples(j, 0) == fullM(k, 0) && samples(j, 1) == fullM(k, 1) && samples(j, 2) == fullM(k, 2)) {
         n = false;
         comps(i*nchannels, 0) = nchannels*j;
         comps(i*nchannels + 1, 0) = nchannels*j + 1;
@@ -1723,9 +1738,9 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
     }
 
     if (n) {
-      samples(count, 0) = fullcopy(k, 0);
-      samples(count, 1) = fullcopy(k, 1);
-      samples(count, 2) = fullcopy(k, 2);
+      samples(count, 0) = fullM(k, 0);
+      samples(count, 1) = fullM(k, 1);
+      samples(count, 2) = fullM(k, 2);
       comps(i*nchannels, 0) = nchannels*count;
       comps(i*nchannels + 1, 0) = nchannels*count + 1;
       comps(i*nchannels + 2, 0) = nchannels*count + 2;
@@ -1734,7 +1749,7 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
 
     n = true;
     for (int j = 0; j < count; j++) {
-      if (samples(j, 0) == fullcopy(k, 0) && samples(j, 1) == fullcopy(k, 3) && samples(j, 2) == fullcopy(k, 4)) {
+      if (samples(j, 0) == fullM(k, 0) && samples(j, 1) == fullM(k, 3) && samples(j, 2) == fullM(k, 4)) {
         n = false;
         comps(i*nchannels, 1) = nchannels*j;
         comps(i*nchannels + 1, 1) = nchannels*j + 1;
@@ -1744,17 +1759,16 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
     }
 
     if (n) {
-      samples(count, 0) = fullcopy(k, 0);
-      samples(count, 1) = fullcopy(k, 3);
-      samples(count, 2) = fullcopy(k, 4);
+      samples(count, 0) = fullM(k, 0);
+      samples(count, 1) = fullM(k, 3);
+      samples(count, 2) = fullM(k, 4);
       comps(i*nchannels, 1) = nchannels*count;
       comps(i*nchannels + 1, 1) = nchannels*count + 1;
       comps(i*nchannels + 2, 1) = nchannels*count + 2;
       count++;
     }
 
-    Mat tmp = fullcopy.row(k);
-    fullcopy.row(fullcopy.rows - i - 1).copyTo(tmp);
+    fullM.row(fullM.rows - i - 1).copyTo(fullM.row(k));
   }
 
   sampleList = samples.rowRange(0, count).clone();
