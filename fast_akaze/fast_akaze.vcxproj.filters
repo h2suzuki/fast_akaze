@@ -103,5 +103,8 @@
     <Text Include="..\perf_tests\R8.1 - Refactor compute_k_percentile.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R8.2 - Refactor nld_step_scalar.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>
