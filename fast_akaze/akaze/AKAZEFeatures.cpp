@@ -135,7 +135,7 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
   gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, 1.0f);
   image_derivatives_scharrV2(evolution_[0].Lsmooth, evolution_[0].Lx, 1, 0);
   image_derivatives_scharrV2(evolution_[0].Lsmooth, evolution_[0].Ly, 0, 1);
-  options_.kcontrast = compute_k_percentileV2(evolution_[0].Lx, evolution_[0].Ly, options_.kcontrast_percentile, modgs_, histgram_);
+  float kcontrast = compute_k_percentileV2(evolution_[0].Lx, evolution_[0].Ly, options_.kcontrast_percentile, modgs_, histgram_);
 
   // Copy the original image to the first level of the evolution
   gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, options_.soffset);
@@ -150,7 +150,7 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
 
     if (evolution_[i].octave > evolution_[i - 1].octave) {
       halfsample_imageV2(evolution_[i - 1].Lt, evolution_[i].Lt);
-      options_.kcontrast = options_.kcontrast*0.75f;
+      kcontrast = kcontrast*0.75f;
 
       // Resize the flow and step images to fit Lt
       Lflow = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, lflow_.data);
@@ -168,16 +168,16 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
     // Compute the conductivity equation
     switch (options_.diffusivity) {
       case KAZE::DIFF_PM_G1:
-        pm_g1V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
+        pm_g1V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
       break;
       case KAZE::DIFF_PM_G2:
-        pm_g2V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
+        pm_g2V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
       break;
       case KAZE::DIFF_WEICKERT:
-        weickert_diffusivityV2(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
+        weickert_diffusivityV2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
       break;
       case KAZE::DIFF_CHARBONNIER:
-        charbonnier_diffusivityV2(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
+        charbonnier_diffusivityV2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
       break;
       default:
         CV_Error(options_.diffusivity, "Diffusivity is not supported");
