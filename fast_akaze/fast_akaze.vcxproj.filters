@@ -97,5 +97,8 @@
     <Text Include="..\perf_tests\R6 - Optimize the memory copies.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R7 - Make heavy loops more auto-vectorizer friendly.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>
