@@ -436,8 +436,8 @@ void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
 
     float ratio = evolution_[kpts[i].class_id].octave_ratio;
 
-    int x = fRoundV2(kpts[i].pt.x / ratio);
-    int y = fRoundV2(kpts[i].pt.y / ratio);
+    int x = (int)(kpts[i].pt.x / ratio);
+    int y = (int)(kpts[i].pt.y / ratio);
 
     /* The labeling scheme of this refinement
          row: y - 1  [    a    ]
