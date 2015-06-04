@@ -47,14 +47,12 @@ AKAZEFeaturesV2::AKAZEFeaturesV2(const AKAZEOptionsV2& options) : options_(optio
  */
 void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
 
-  float rfactor = 0.0f;
-  int level_height = 0, level_width = 0;
 
   // Allocate the dimension of the matrices for the evolution
   for (int i = 0, power = 1; i <= options_.omax - 1; i++, power *= 2) {
-    rfactor = 1.0f / power;
-    level_height = (int)(options_.img_height*rfactor);
-    level_width = (int)(options_.img_width*rfactor);
+    float rfactor = 1.0f / power;
+    int level_height = (int)(options_.img_height*rfactor);
+    int level_width = (int)(options_.img_width*rfactor);
 
     // Smallest possible octave and allow one scale if the image is small
     if ((level_width < 80 || level_height < 40) && i != 0) {
