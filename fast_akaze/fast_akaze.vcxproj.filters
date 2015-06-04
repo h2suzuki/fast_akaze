@@ -91,5 +91,8 @@
     <Text Include="..\perf_tests\R4 - Change Mat zeros to Mat create.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R5 - Remove temporary variables on heap.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>

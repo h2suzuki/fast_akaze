@@ -113,6 +113,7 @@
     <Text Include="..\perf_tests\R2 - AKAZE2 with VS2013 compiler option tweaking.txt" />
     <Text Include="..\perf_tests\R3 - Make AKAZEFeature persistent.txt" />
     <Text Include="..\perf_tests\R4 - Change Mat zeros to Mat create.txt" />
+    <Text Include="..\perf_tests\R5 - Remove temporary variables on heap.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
