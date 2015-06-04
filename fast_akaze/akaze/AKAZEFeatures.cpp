@@ -464,9 +464,12 @@ void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
     Vec2f   dst{ 0.0f, 0.0f };
     solve(A, b, dst, DECOMP_LU);
 
-    if (fabs(dst(0)) <= 1.0f && fabs(dst(1)) <= 1.0f) {
-        kpts[i].pt.x = x + dst(0);
-      kpts[i].pt.y = y + dst(1);
+    float dx = dst(0);
+    float dy = dst(1);
+
+    if (fabs(dx) <= 1.0f && fabs(dy) <= 1.0f) {
+      kpts[i].pt.x = x + dx;
+      kpts[i].pt.y = y + dy;
       kpts[i].pt.x *= ratio;
       kpts[i].pt.y *= ratio;
       kpts[i].angle = 0.0;
