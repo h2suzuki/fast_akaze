@@ -304,7 +304,6 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
   int npoints = 0, id_repeated = 0;
   int sigma_size_ = 0, left_x = 0, right_x = 0, up_y = 0, down_y = 0;
   bool is_extremum = false, is_repeated = false, is_out = false;
-  KeyPoint point;
 
   kpts_aux_.clear();
 
@@ -339,15 +338,18 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
         if (value <= next[jx-1] || value <= next[jx] || value <= next[jx+1])
           continue;
 
+        KeyPoint point( /* x */ static_cast<float>(jx),
+                        /* y */ static_cast<float>(ix),
+                        /* size */ evolution_[i].esigma*options_.derivative_factor,
+                        /* angle */ -1,
+                        /* response */ fabs(value),
+                        /* octave */ evolution_[i].octave,
+                        /* class_id */ i);
+
           is_extremum = true;
-          point.response = fabs(value);
-          point.size = evolution_[i].esigma*options_.derivative_factor;
-          point.octave = (int)evolution_[i].octave;
-          point.class_id = (int)i;
+
           ratio = evolution_[i].octave_ratio;
           sigma_size_ = fRoundV2(point.size / ratio);
-          point.pt.x = static_cast<float>(jx);
-          point.pt.y = static_cast<float>(ix);
 
           // Compare response with the same and lower scale
           for (int ik = 0; ik < (int)kpts_aux_.size(); ik++) {
