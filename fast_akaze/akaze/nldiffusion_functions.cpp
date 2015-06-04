@@ -274,20 +274,6 @@ float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, s
     return kperc;
 }
 
-/* ************************************************************************* */
-/**
- * @brief This function computes Scharr image derivatives
- * @param src Input image
- * @param dst Output image
- * @param xorder Derivative order in X-direction (horizontal)
- * @param yorder Derivative order in Y-direction (vertical)
- * @param scale Scale factor for the derivative size
- */
-void compute_scharr_derivativesV2(const cv::Mat& src, cv::Mat& dst, int xorder, int yorder, int scale) {
-    Mat kx, ky;
-    compute_derivative_kernelsV2(kx, ky, xorder, yorder, scale);
-    sepFilter2D(src, dst, CV_32F, kx, ky);
-}
 
 /* ************************************************************************* */
 /**
