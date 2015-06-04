@@ -10,23 +10,12 @@
  */
 inline float getAngleV2(float x, float y) {
 
-  if (x >= 0 && y >= 0) {
-    return atanf(y / x);
-  }
+    float theta = atan2f(y,x);
 
-  if (x < 0 && y >= 0) {
-    return static_cast<float>(CV_PI)-atanf(-y / x);
-  }
-
-  if (x < 0 && y < 0) {
-    return static_cast<float>(CV_PI)+atanf(y / x);
-  }
-
-  if (x >= 0 && y < 0) {
-    return static_cast<float>(2.0 * CV_PI) - atanf(-y / x);
-  }
-
-  return 0;
+    if (theta >= 0)
+	return theta;
+    else
+	return theta + static_cast<float>(2.0f*CV_PI);
 }
 
 /* ************************************************************************* */
