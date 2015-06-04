@@ -71,7 +71,7 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       step.Lxy.create(level_height, level_width, CV_32FC1);
       step.Lyy.create(level_height, level_width, CV_32FC1);
       step.esigma = options_.soffset*pow(2.f, (float)j / options_.nsublevels + i);
-      step.sigma_size = fRoundV2(step.esigma);
+      step.sigma_size = fRoundV2(step.esigma * options_.derivative_factor / power);  // In fact sigma_size only depends on j
       step.etime = 0.5f*(step.esigma*step.esigma);
       step.octave = i;
       step.sublevel = j;
@@ -198,7 +198,7 @@ public:
     for (int i = range.start; i < range.end; i++)
     {
         float ratio = (float)fastpowV2(2, evolution[i].octave);
-      int sigma_size_ = fRoundV2(evolution[i].esigma * options_.derivative_factor / ratio);
+      int sigma_size_ = evolution[i].sigma_size;
 
       compute_scharr_derivativesV2(evolution[i].Lsmooth, evolution[i].Lx, 1, 0, sigma_size_);
       compute_scharr_derivativesV2(evolution[i].Lsmooth, evolution[i].Ly, 0, 1, sigma_size_);

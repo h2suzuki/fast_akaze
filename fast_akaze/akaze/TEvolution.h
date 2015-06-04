@@ -32,7 +32,7 @@ struct TEvolutionV2
   float esigma;             ///< Evolution sigma. For linear diffusion t = sigma^2 / 2
   int octave;               ///< Image octave
   int sublevel;             ///< Image sublevel in each octave
-  int sigma_size;           ///< Integer esigma. For computing the feature detector responses
+  int sigma_size;           ///< Scaling factor of esigma that is round(esigma * derivative_factor / power)
 };
 
 }
