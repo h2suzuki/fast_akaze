@@ -270,15 +270,15 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
 
   for (size_t i = 0; i < evolution_.size(); i++)
   {
-    for (int ix = 0; ix < evolution_[i].Ldet.rows; ix++)
-    {
-      for (int jx = 0; jx < evolution_[i].Ldet.cols; jx++)
-      {
-        float lxx = *(evolution_[i].Lxx.ptr<float>(ix)+jx);
-        float lxy = *(evolution_[i].Lxy.ptr<float>(ix)+jx);
-        float lyy = *(evolution_[i].Lyy.ptr<float>(ix)+jx);
-        *(evolution_[i].Ldet.ptr<float>(ix)+jx) = (lxx*lyy - lxy*lxy);
-      }
+    const int total = evolution_[i].Ldet.rows * evolution_[i].Ldet.cols;
+    const float * lxx = evolution_[i].Lxx.ptr<float>(0);
+    const float * lxy = evolution_[i].Lxy.ptr<float>(0);
+    const float * lyy = evolution_[i].Lyy.ptr<float>(0);
+    float * ldet = evolution_[i].Ldet.ptr<float>(0);
+
+    // Compute Ldet by Lxx.mul(Lyy) - Lxy.mul(Lxy)
+    for (int j = 0; j < total; j++) {
+      ldet[j] = lxx[j]*lyy[j] - lxy[j]*lxy[j];
     }
   }
 }
