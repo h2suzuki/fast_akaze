@@ -467,8 +467,8 @@ void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
     if (fabs(dst(0)) <= 1.0f && fabs(dst(1)) <= 1.0f) {
         kpts[i].pt.x = x + dst(0);
       kpts[i].pt.y = y + dst(1);
-      kpts[i].pt.x *= evolution_[kpts[i].class_id].octave_ratio;
-      kpts[i].pt.y *= evolution_[kpts[i].class_id].octave_ratio;
+      kpts[i].pt.x *= ratio;
+      kpts[i].pt.y *= ratio;
       kpts[i].angle = 0.0;
 
       // In OpenCV the size of a keypoint its the diameter
