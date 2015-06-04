@@ -158,9 +158,8 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
       evolution_[i - 1].Lt.copyTo(evolution_[i].Lt);
     }
 
-    gaussian_2D_convolutionV2(evolution_[i].Lt, evolution_[i].Lsmooth, 0, 0, 1.0f);
-
     // Compute the Gaussian derivatives Lx and Ly
+    gaussian_2D_convolutionV2(evolution_[i].Lt, evolution_[i].Lsmooth, 0, 0, 1.0f);
     image_derivatives_scharrV2(evolution_[i].Lsmooth, evolution_[i].Lx, 1, 0);
     image_derivatives_scharrV2(evolution_[i].Lsmooth, evolution_[i].Ly, 0, 1);
 
