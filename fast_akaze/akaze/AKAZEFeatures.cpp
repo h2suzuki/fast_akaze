@@ -432,45 +432,36 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
  */
 void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
 {
-  float Dx = 0.0, Dy = 0.0, ratio = 0.0;
-  float Dxx = 0.0, Dyy = 0.0, Dxy = 0.0;
-  int x = 0, y = 0;
-  Matx22f A(0, 0, 0, 0);
-  Vec2f b(0, 0);
-  Vec2f dst(0, 0);
-
   for (size_t i = 0; i < kpts.size(); i++) {
-    ratio = evolution_[kpts[i].class_id].octave_ratio;
-    x = fRoundV2(kpts[i].pt.x / ratio);
-    y = fRoundV2(kpts[i].pt.y / ratio);
+    float ratio = evolution_[kpts[i].class_id].octave_ratio;
+    int x = fRoundV2(kpts[i].pt.x / ratio);
+    int y = fRoundV2(kpts[i].pt.y / ratio);
 
     // Compute the gradient
-    Dx = (0.5f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x + 1)
+    float Dx = (0.5f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x + 1)
         - *(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x - 1));
-    Dy = (0.5f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x)
+    float Dy = (0.5f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x)
         - *(evolution_[kpts[i].class_id].Ldet.ptr<float>(y - 1) + x));
 
     // Compute the Hessian
-    Dxx = (*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x + 1)
+    float Dxx = (*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x + 1)
         + *(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x - 1)
         - 2.0f*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x)));
 
-    Dyy = (*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x)
+    float Dyy = (*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x)
         + *(evolution_[kpts[i].class_id].Ldet.ptr<float>(y - 1) + x)
         - 2.0f*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x)));
 
-    Dxy = (0.25f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x + 1)
+    float Dxy = (0.25f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x + 1)
         + (*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y - 1) + x - 1)))
         - (0.25f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y - 1) + x + 1)
         + (*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x - 1)));
 
     // Solve the linear system
-    A(0, 0) = Dxx;
-    A(1, 1) = Dyy;
-    A(0, 1) = A(1, 0) = Dxy;
-    b(0) = -Dx;
-    b(1) = -Dy;
-
+    Matx22f A{ Dxx, Dxy,
+               Dxy, Dyy };
+    Vec2f   b{ -Dx, -Dy };
+    Vec2f   dst{ 0.0f, 0.0f };
     solve(A, b, dst, DECOMP_LU);
 
     if (fabs(dst(0)) <= 1.0f && fabs(dst(1)) <= 1.0f) {
