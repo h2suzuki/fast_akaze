@@ -79,8 +79,8 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       step.sublevel = j;
 
       // Pre-calculate the derivative kernels
-      compute_derivative_kernelsV2(step.DxKx, step.DxKy, 1, 0, step.sigma_size);
-      compute_derivative_kernelsV2(step.DyKx, step.DyKy, 0, 1, step.sigma_size);
+      compute_scharr_derivative_kernelsV2(step.DxKx, step.DxKy, 1, 0, step.sigma_size);
+      compute_scharr_derivative_kernelsV2(step.DyKx, step.DyKy, 0, 1, step.sigma_size);
 
       evolution_.push_back(step);
     }

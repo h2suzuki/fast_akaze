@@ -277,14 +277,14 @@ float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, s
 
 /* ************************************************************************* */
 /**
- * @brief Compute derivative kernels for sizes different than 3
+ * @brief Compute Scharr derivative kernels for sizes different than 3
  * @param _kx Horizontal kernel ues
  * @param _ky Vertical kernel values
  * @param dx Derivative order in X-direction (horizontal)
  * @param dy Derivative order in Y-direction (vertical)
  * @param scale_ Scale factor or derivative size
  */
-void compute_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _ky, int dx, int dy, int scale) {
+void compute_scharr_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _ky, int dx, int dy, int scale) {
 
     int ksize = 3 + 2 * (scale - 1);
 
