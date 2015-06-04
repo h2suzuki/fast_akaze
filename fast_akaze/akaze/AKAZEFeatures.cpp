@@ -378,20 +378,20 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
                         /* octave */ evolution_[i].octave,
                         /* class_id */ i);
 
-        int ik = 0;
+        int idx = 0;
 
         // Compare response with the same scale
-        if (find_neighbor_point(point, kpts_aux_[i], 0, ik)) {
-          if (point.response > kpts_aux_[i][ik].response)
-            kpts_aux_[i][ik] = point;
+        if (find_neighbor_point(point, kpts_aux_[i], 0, idx)) {
+          if (point.response > kpts_aux_[i][idx].response)
+            kpts_aux_[i][idx] = point;  // Replace the old point
           continue;
         }
 
         // Compare response with the lower scale
-        if (i > 0 && find_neighbor_point(point, kpts_aux_[i - 1], 0, ik)) {
-          if (point.response > kpts_aux_[i - 1][ik].response) {
-            kpts_aux_[i - 1][ik].class_id = -1;  // mark it as deleted.
-            kpts_aux_[i].push_back(point);
+        if (i > 0 && find_neighbor_point(point, kpts_aux_[i - 1], 0, idx)) {
+          if (point.response > kpts_aux_[i - 1][idx].response) {
+            kpts_aux_[i - 1][idx].class_id = -1;  // Mark it as deleted
+            kpts_aux_[i].push_back(point);  // Insert the new point to the right layer
           }
           continue;
         }
