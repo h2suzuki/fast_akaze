@@ -11,6 +11,8 @@
 #include "nldiffusion_functions.h"
 #include "utils.h"
 
+#include <opencv2/imgproc.hpp>
+
 #include <iostream>
 
 // Taken from opencv2/internal.hpp: IEEE754 constants and macros
@@ -75,6 +77,11 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       step.etime = 0.5f*(step.esigma*step.esigma);
       step.octave = i;
       step.sublevel = j;
+
+      // Pre-calculate the derivative kernels
+      compute_derivative_kernelsV2(step.DxKx, step.DxKy, 1, 0, step.sigma_size);
+      compute_derivative_kernelsV2(step.DyKx, step.DyKy, 0, 1, step.sigma_size);
+
       evolution_.push_back(step);
     }
   }
@@ -197,20 +204,17 @@ public:
 
     for (int i = range.start; i < range.end; i++)
     {
-        float ratio = (float)fastpowV2(2, evolution[i].octave);
-      int sigma_size_ = evolution[i].sigma_size;
+      sepFilter2D(evolution[i].Lsmooth, evolution[i].Lx, CV_32F, evolution[i].DxKx, evolution[i].DxKy);
+      sepFilter2D(evolution[i].Lsmooth, evolution[i].Ly, CV_32F, evolution[i].DyKx, evolution[i].DyKy);
+      sepFilter2D(evolution[i].Lx, evolution[i].Lxx, CV_32F, evolution[i].DxKx, evolution[i].DxKy);
+      sepFilter2D(evolution[i].Ly, evolution[i].Lyy, CV_32F, evolution[i].DyKx, evolution[i].DyKy);
+      sepFilter2D(evolution[i].Lx, evolution[i].Lxy, CV_32F, evolution[i].DyKx, evolution[i].DyKy);
 
-      compute_scharr_derivativesV2(evolution[i].Lsmooth, evolution[i].Lx, 1, 0, sigma_size_);
-      compute_scharr_derivativesV2(evolution[i].Lsmooth, evolution[i].Ly, 0, 1, sigma_size_);
-      compute_scharr_derivativesV2(evolution[i].Lx, evolution[i].Lxx, 1, 0, sigma_size_);
-      compute_scharr_derivativesV2(evolution[i].Ly, evolution[i].Lyy, 0, 1, sigma_size_);
-      compute_scharr_derivativesV2(evolution[i].Lx, evolution[i].Lxy, 0, 1, sigma_size_);
-
-      evolution[i].Lx = evolution[i].Lx*((sigma_size_));
-      evolution[i].Ly = evolution[i].Ly*((sigma_size_));
-      evolution[i].Lxx = evolution[i].Lxx*((sigma_size_)*(sigma_size_));
-      evolution[i].Lxy = evolution[i].Lxy*((sigma_size_)*(sigma_size_));
-      evolution[i].Lyy = evolution[i].Lyy*((sigma_size_)*(sigma_size_));
+      evolution[i].Lx = evolution[i].Lx*(evolution[i].sigma_size);
+      evolution[i].Ly = evolution[i].Ly*(evolution[i].sigma_size);
+      evolution[i].Lxx = evolution[i].Lxx*(evolution[i].sigma_size * evolution[i].sigma_size);
+      evolution[i].Lxy = evolution[i].Lxy*(evolution[i].sigma_size * evolution[i].sigma_size);
+      evolution[i].Lyy = evolution[i].Lyy*(evolution[i].sigma_size * evolution[i].sigma_size);
     }
   }
 
