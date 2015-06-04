@@ -100,5 +100,8 @@
     <Text Include="..\perf_tests\R7 - Make heavy loops more auto-vectorizer friendly.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R8.1 - Refactor compute_k_percentile.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>
