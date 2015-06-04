@@ -319,9 +319,9 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
     // Descriptors of the points on the border cannot be computed; exclude them first
     const int border = fRoundV2(smax * evolution_[i].sigma_size) + 1;
 
-    float* prev = evolution_[i].Ldet.ptr<float>(border - 1);
-    float* curr = evolution_[i].Ldet.ptr<float>(border    );
-    float* next = evolution_[i].Ldet.ptr<float>(border + 1);
+    const float * prev = evolution_[i].Ldet.ptr<float>(border - 1);
+    const float * curr = evolution_[i].Ldet.ptr<float>(border    );
+    const float * next = evolution_[i].Ldet.ptr<float>(border + 1);
 
     for (int ix = border; ix < evolution_[i].Ldet.rows - border; ix++) {
 
