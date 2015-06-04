@@ -74,24 +74,4 @@ inline int fRoundV2(float flt) {
   return (int)(flt + 0.5f);
 }
 
-/* ************************************************************************* */
-/**
- * @brief Exponentiation by squaring
- * @param flt Exponentiation base
- * @return dst Exponentiation value
- */
-inline int fastpowV2(int base, int exp) {
-    int res = 1;
-    while(exp > 0) {
-        if(exp & 1) {
-            exp--;
-            res *= base;
-        } else {
-            exp /= 2;
-            base *= base;
-        }
-    }
-    return res;
-}
-
 #endif

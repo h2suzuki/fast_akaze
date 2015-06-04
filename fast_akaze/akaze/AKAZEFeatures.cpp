@@ -78,6 +78,7 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       step.etime = 0.5f*(step.esigma*step.esigma);
       step.octave = i;
       step.sublevel = j;
+      step.octave_ratio = (float)power;
 
       // Pre-calculate the derivative kernels
       compute_scharr_derivative_kernelsV2(step.DxKx, step.DxKy, 1, 0, step.sigma_size);
@@ -338,7 +339,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
           point.size = evolution_[i].esigma*options_.derivative_factor;
           point.octave = (int)evolution_[i].octave;
           point.class_id = (int)i;
-          ratio = (float)fastpowV2(2, point.octave);
+          ratio = evolution_[i].octave_ratio;
           sigma_size_ = fRoundV2(point.size / ratio);
           point.pt.x = static_cast<float>(jx);
           point.pt.y = static_cast<float>(ix);
@@ -440,7 +441,7 @@ void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
   Vec2f dst(0, 0);
 
   for (size_t i = 0; i < kpts.size(); i++) {
-    ratio = (float)fastpowV2(2, kpts[i].octave);
+    ratio = evolution_[kpts[i].class_id].octave_ratio;
     x = fRoundV2(kpts[i].pt.x / ratio);
     y = fRoundV2(kpts[i].pt.y / ratio);
 
@@ -476,9 +477,8 @@ void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
     if (fabs(dst(0)) <= 1.0f && fabs(dst(1)) <= 1.0f) {
         kpts[i].pt.x = x + dst(0);
       kpts[i].pt.y = y + dst(1);
-      int power = fastpowV2(2, evolution_[kpts[i].class_id].octave);
-      kpts[i].pt.x *= power;
-      kpts[i].pt.y *= power;
+      kpts[i].pt.x *= evolution_[kpts[i].class_id].octave_ratio;
+      kpts[i].pt.y *= evolution_[kpts[i].class_id].octave_ratio;
       kpts[i].angle = 0.0;
 
       // In OpenCV the size of a keypoint its the diameter
@@ -831,7 +831,7 @@ void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<
 
   // Get the information from the keypoint
   level = kpt.class_id;
-  ratio = (float)(1 << evolution_[level].octave);
+  ratio = evolution_[level].octave_ratio;
   s = fRoundV2(0.5f*kpt.size / ratio);
   xf = kpt.pt.x / ratio;
   yf = kpt.pt.y / ratio;
@@ -914,9 +914,9 @@ void MSURF_Upright_Descriptor_64_InvokerV2::Get_MSURF_Upright_Descriptor_64(cons
   pattern_size = 12;
 
   // Get the information from the keypoint
-  ratio = (float)(1 << kpt.octave);
-  scale = fRoundV2(0.5f*kpt.size / ratio);
   level = kpt.class_id;
+  ratio = evolution[level].octave_ratio;
+  scale = fRoundV2(0.5f*kpt.size / ratio);
   yf = kpt.pt.y / ratio;
   xf = kpt.pt.x / ratio;
 
@@ -1037,10 +1037,10 @@ void MSURF_Descriptor_64_InvokerV2::Get_MSURF_Descriptor_64(const KeyPoint& kpt,
   pattern_size = 12;
 
   // Get the information from the keypoint
-  ratio = (float)(1 << kpt.octave);
+  level = kpt.class_id;
+  ratio = evolution[level].octave_ratio;
   scale = fRoundV2(0.5f*kpt.size / ratio);
   angle = kpt.angle;
-  level = kpt.class_id;
   yf = kpt.pt.y / ratio;
   xf = kpt.pt.x / ratio;
   co = cos(angle);
@@ -1160,9 +1160,9 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
   float values_3[16][3];
 
   // Get the information from the keypoint
-  ratio = (float)(1 << kpt.octave);
-  scale = fRoundV2(0.5f*kpt.size / ratio);
   level = kpt.class_id;
+  ratio = evolution[level].octave_ratio;
+  scale = fRoundV2(0.5f*kpt.size / ratio);
   yf = kpt.pt.y / ratio;
   xf = kpt.pt.x / ratio;
 
@@ -1474,7 +1474,7 @@ void MLDB_Full_Descriptor_InvokerV2::Get_MLDB_Full_Descriptor(const KeyPoint& kp
   float values[16*max_channels];
   const double size_mult[3] = {1, 2.0/3.0, 1.0/2.0};
 
-  float ratio = (float)(1 << kpt.octave);
+  float ratio = (*evolution_)[kpt.class_id].octave_ratio;
   float scale = (float)fRoundV2(0.5f*kpt.size / ratio);
   float xf = kpt.pt.x / ratio;
   float yf = kpt.pt.y / ratio;
@@ -1511,7 +1511,7 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
   const std::vector<TEvolutionV2>& evolution = *evolution_;
 
   // Get the information from the keypoint
-  float ratio = (float)(1 << kpt.octave);
+  float ratio = evolution[kpt.class_id].octave_ratio;
   int scale = fRoundV2(0.5f*kpt.size / ratio);
   float angle = kpt.angle;
   int level = kpt.class_id;
@@ -1610,7 +1610,7 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
   const std::vector<TEvolutionV2>& evolution = *evolution_;
 
   // Get the information from the keypoint
-  float ratio = (float)(1 << kpt.octave);
+  float ratio = evolution[kpt.class_id].octave_ratio;
   int scale = fRoundV2(0.5f*kpt.size / ratio);
   int level = kpt.class_id;
   float yf = kpt.pt.y / ratio;
