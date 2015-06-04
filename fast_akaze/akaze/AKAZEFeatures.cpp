@@ -433,29 +433,29 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
 {
   for (size_t i = 0; i < kpts.size(); i++) {
+
     float ratio = evolution_[kpts[i].class_id].octave_ratio;
+
     int x = fRoundV2(kpts[i].pt.x / ratio);
     int y = fRoundV2(kpts[i].pt.y / ratio);
 
+    /* The labeling scheme of this refinement
+         row: y - 1  [    a    ]
+         row: y      [ -1 c +1 ]
+         row: y + 1  [    b    ]
+     */
+    float * ldet_a = evolution_[kpts[i].class_id].Ldet.ptr<float>(y - 1);
+    float * ldet_c = evolution_[kpts[i].class_id].Ldet.ptr<float>(y    );
+    float * ldet_b = evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1);
+
     // Compute the gradient
-    float Dx = (0.5f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x + 1)
-        - *(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x - 1));
-    float Dy = (0.5f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x)
-        - *(evolution_[kpts[i].class_id].Ldet.ptr<float>(y - 1) + x));
+    float Dx = 0.5f * (ldet_c[x + 1] - ldet_c[x - 1]);
+    float Dy = 0.5f * (ldet_b[x    ] - ldet_a[x    ]);
 
     // Compute the Hessian
-    float Dxx = (*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x + 1)
-        + *(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x - 1)
-        - 2.0f*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x)));
-
-    float Dyy = (*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x)
-        + *(evolution_[kpts[i].class_id].Ldet.ptr<float>(y - 1) + x)
-        - 2.0f*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x)));
-
-    float Dxy = (0.25f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x + 1)
-        + (*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y - 1) + x - 1)))
-        - (0.25f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y - 1) + x + 1)
-        + (*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x - 1)));
+    float Dxx = ldet_c[x + 1] + ldet_c[x - 1] - 2.0f * ldet_c[x];
+    float Dyy = ldet_b[x    ] + ldet_a[x    ] - 2.0f * ldet_c[x];
+    float Dxy = 0.25f * (ldet_b[x + 1] + ldet_a[x - 1] - ldet_a[x + 1] - ldet_b[x - 1]);
 
     // Solve the linear system
     Matx22f A{ Dxx, Dxy,
