@@ -182,10 +182,18 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
       break;
     }
 
-    // Perform FED n inner steps
+    const int total = Lstep.rows * Lstep.cols;
+    float * lt = evolution_[i].Lt.ptr<float>(0);
+    float * lstep = Lstep.ptr<float>(0);
     std::vector<float> & tsteps = tsteps_[i - 1];
+
+    // Perform FED n inner steps
     for (int j = 0; j < tsteps.size(); j++) {
-      nld_step_scalarV2(evolution_[i].Lt, Lflow, Lstep, tsteps[j]);
+      nld_step_scalarV2(evolution_[i].Lt, Lflow, Lstep);
+
+      const float step_size = tsteps[j];
+      for (int k = 0; k < total; k++)
+        lt[k] += lstep[k] * 0.5f * step_size;
     }
   }
 

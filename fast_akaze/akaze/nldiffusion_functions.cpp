@@ -322,11 +322,10 @@ void compute_scharr_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _k
 class Nld_Step_Scalar_InvokerV2 : public cv::ParallelLoopBody
 {
 public:
-    Nld_Step_Scalar_InvokerV2(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float _stepsize)
+    Nld_Step_Scalar_InvokerV2(const cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep)
         : _Ld(&Ld)
         , _c(&c)
         , _Lstep(&Lstep)
-        , stepsize(_stepsize)
     {
     }
 
@@ -337,7 +336,7 @@ public:
 
     void operator()(const cv::Range& range) const
     {
-        cv::Mat& Ld = *_Ld;
+        const cv::Mat& Ld = *_Ld;
         const cv::Mat& c = *_c;
         cv::Mat& Lstep = *_Lstep;
 
@@ -358,31 +357,30 @@ public:
                 float xneg = (c_curr[j-1] + c_curr[j])  *(ld_curr[j]   - ld_curr[j-1]);
                 float ypos = (c_curr[j]   + c_next[j])  *(ld_next[j]   - ld_curr[j]);
                 float yneg = (c_prev[j]   + c_curr[j])  *(ld_curr[j]   - ld_prev[j]);
-                dst[j] = 0.5f*stepsize*(xpos - xneg + ypos - yneg);
+                dst[j] = (xpos - xneg + ypos - yneg);
             }
         }
     }
 private:
-    cv::Mat * _Ld;
+    const cv::Mat * _Ld;
     const cv::Mat * _c;
     cv::Mat * _Lstep;
-    float stepsize;
 };
 
 /* ************************************************************************* */
 /**
-* @brief This function performs a scalar non-linear diffusion step
-* @param Ld2 Output image in the evolution
+* @brief This function computes a scalar non-linear diffusion step
+* @param Ld Base image in the evolution
 * @param c Conductivity image
-* @param Lstep Previous image in the evolution
-* @param stepsize The step size in time units
+* @param Lstep Output image that gives the difference between the current
+* Ld and the next Ld being evolved
 * @note Forward Euler Scheme 3x3 stencil
 * The function c is a scalar value that depends on the gradient norm
 * dL_by_ds = d(c dL_by_dx)_by_dx + d(c dL_by_dy)_by_dy
 */
-void nld_step_scalarV2(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float stepsize) {
+void nld_step_scalarV2(const cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep) {
 
-    cv::parallel_for_(cv::Range(1, Lstep.rows - 1), Nld_Step_Scalar_InvokerV2(Ld, c, Lstep, stepsize), (double)Ld.total()/(1 << 16));
+    cv::parallel_for_(cv::Range(1, Lstep.rows - 1), Nld_Step_Scalar_InvokerV2(Ld, c, Lstep), (double)Ld.total()/(1 << 16));
 
     float xneg, xpos, yneg, ypos;
     float* dst = Lstep.ptr<float>(0);
@@ -396,7 +394,7 @@ void nld_step_scalarV2(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float step
         xpos = (ccur[j]   + ccur[j+1]) * (ldcur[j+1] - ldcur[j]);
         xneg = (ccur[j-1] + ccur[j])   * (ldcur[j]   - ldcur[j-1]);
         ypos = (ccur[j]   + cnxt[j])   * (ldnxt[j]   - ldcur[j]);
-        dst[j] = 0.5f*stepsize*(xpos - xneg + ypos);
+        dst[j] = (xpos - xneg + ypos);
     }
 
     dst = Lstep.ptr<float>(Lstep.rows - 1);
@@ -409,7 +407,7 @@ void nld_step_scalarV2(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float step
         xpos = (ccur[j] + ccur[j+1]) * (ldcur[j+1] - ldcur[j]);
         xneg = (ccur[j-1] + ccur[j]) * (ldcur[j] - ldcur[j-1]);
         yneg = (cprv[j] + ccur[j])   * (ldcur[j] - ldprv[j]);
-        dst[j] = 0.5f*stepsize*(xpos - xneg - yneg);
+        dst[j] = (xpos - xneg - yneg);
     }
 
     ccur = c.ptr<float>(1);
@@ -428,19 +426,18 @@ void nld_step_scalarV2(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float step
         xpos = (ccur[0] + ccur[1]) * (ldcur[1] - ldcur[0]);
         ypos = (ccur[0] + cnxt[0]) * (ldnxt[0] - ldcur[0]);
         yneg = (cprv[0] + ccur[0]) * (ldcur[0] - ldprv[0]);
-        dst[0] = 0.5f*stepsize*(xpos + ypos - yneg);
+        dst[0] = (xpos + ypos - yneg);
 
         xneg = (ccur[r1] + ccur[r0]) * (ldcur[r0] - ldcur[r1]);
         ypos = (ccur[r0] + cnxt[r0]) * (ldnxt[r0] - ldcur[r0]);
         yneg = (cprv[r0] + ccur[r0]) * (ldcur[r0] - ldprv[r0]);
-        dst[r0] = 0.5f*stepsize*(-xneg + ypos - yneg);
+        dst[r0] = (-xneg + ypos - yneg);
 
         cprv = ccur;
         ccur = cnxt;
         ldprv = ldcur;
         ldcur = ldnxt;
     }
-    Ld += Lstep;
 }
 
 /* ************************************************************************* */
