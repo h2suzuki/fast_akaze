@@ -115,6 +115,8 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
   }
 
   // Allocate memory for workspaces
+  lx_.create(options_.img_height, options_.img_width, CV_32FC1);
+  ly_.create(options_.img_height, options_.img_width, CV_32FC1);
   lflow_.create(options_.img_height, options_.img_width, CV_32FC1);
   lstep_.create(options_.img_height, options_.img_width, CV_32FC1);
   histgram_.create(1, options_.kcontrast_nbins, CV_32SC1);
@@ -208,11 +210,15 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
     return 0;
   }
 
+  // Prepare Mats to be used as local workspace
+  Mat Lx(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lx_.data);
+  Mat Ly(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, ly_.data);
+  Mat Lsmooth(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lflow_.data); /* the memory shared with Lflow */
 
   // First compute the kcontrast factor
-  gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, 1.0f);
-  image_derivatives(evolution_[0].Lsmooth, evolution_[0].Lx, evolution_[0].Ly);
-  float kcontrast = compute_k_percentileV2(evolution_[0].Lx, evolution_[0].Ly, options_.kcontrast_percentile, modgs_, histgram_);
+  gaussian_2D_convolutionV2(*gray, Lsmooth, 0, 0, 1.0f);
+  image_derivatives(Lsmooth, Lx, Ly);
+  float kcontrast = compute_k_percentileV2(Lx, Ly, options_.kcontrast_percentile, modgs_, histgram_);
 
   // Copy the original image to the first level of the evolution
   gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, options_.soffset);
@@ -229,7 +235,9 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
       halfsample_imageV2(evolution_[i - 1].Lt, evolution_[i].Lt);
       kcontrast = kcontrast*0.75f;
 
-      // Resize the flow and step images to fit Lt
+      // Resize the workspace images to fit Lt
+      Lx = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, lx_.data);
+      Ly = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, ly_.data);
       Lflow = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, lflow_.data);
       Lstep = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, lstep_.data);
     }
@@ -239,21 +247,21 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
 
     // Compute the Gaussian derivatives Lx and Ly
     gaussian_2D_convolutionV2(evolution_[i].Lt, evolution_[i].Lsmooth, 0, 0, 1.0f);
-    image_derivatives(evolution_[i].Lsmooth, evolution_[i].Lx, evolution_[i].Ly);
+    image_derivatives(evolution_[i].Lsmooth, Lx, Ly);
 
     // Compute the conductivity equation Lflow
     switch (options_.diffusivity) {
       case KAZE::DIFF_PM_G1:
-        pm_g1V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
+        pm_g1V2(Lx, Ly, Lflow, kcontrast);
       break;
       case KAZE::DIFF_PM_G2:
-        pm_g2V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
+        pm_g2V2(Lx, Ly, Lflow, kcontrast);
       break;
       case KAZE::DIFF_WEICKERT:
-        weickert_diffusivityV2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
+        weickert_diffusivityV2(Lx, Ly, Lflow, kcontrast);
       break;
       case KAZE::DIFF_CHARBONNIER:
-        charbonnier_diffusivityV2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
+        charbonnier_diffusivityV2(Lx, Ly, Lflow, kcontrast);
       break;
       default:
         CV_Error(options_.diffusivity, "Diffusivity is not supported");

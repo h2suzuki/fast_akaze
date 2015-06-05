@@ -47,7 +47,7 @@ private:
   cv::Mat bitMask_;
 
   /// Preallocated temporary variables
-  cv::Mat gray_;
+  cv::Mat gray_, lx_, ly_;
   cv::Mat lflow_, lstep_;
   cv::Mat histgram_, modgs_;
   std::vector<std::vector<cv::KeyPoint>> kpts_aux_;
