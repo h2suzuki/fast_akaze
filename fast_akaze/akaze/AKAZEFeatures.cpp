@@ -1625,7 +1625,6 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
   for (int i = 0; i < descriptorSamples_.rows; i++) {
     const int *coords = descriptorSamples_.ptr<int>(i);
 
-    int sample_step = coords[0];
 
     float di = 0.0f;
     float dx = 0.0f;
