@@ -127,5 +127,8 @@
     <Text Include="..\perf_tests\R9.1 - Remove OpenMP spin wait.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R9.2 - Parallelize Compute_Determinant_Hessian_Response.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>
