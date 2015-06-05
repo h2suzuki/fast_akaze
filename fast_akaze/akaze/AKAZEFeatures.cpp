@@ -14,6 +14,8 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
+#include <cstring>
+#include <cstdint>
 #include <iostream>
 
 // Taken from opencv2/internal.hpp: IEEE754 constants and macros
@@ -797,6 +799,43 @@ void AKAZEFeaturesV2::Compute_Descriptors(std::vector<KeyPoint>& kpts, Mat& desc
     break;
   }
 }
+
+/* ************************************************************************* */
+/**
+ * @brief This function sorts a[] by quantized float values
+ * @param a[] Input floating point array to sort
+ * @param n The length of a[]
+ * @param quantum The interval to convert a[]'s float values to integers
+ * @param max The upper bound of a[]'s values
+ * @param idx[] Output array of the indices: a[idx[i]] is a sorted array
+ * @param cum[] Output array of the starting indices of quantized floats
+ * @note The values of a[] in [k*quantum, (k + 1)*quantum) is labeled by
+ * the integer k, which is calculated by floor(a[i]/quantum).  After sorting,
+ * the values from a[idx[cum[k]]] to a[idx[cum[k+1]-1]] are all labeled by k.
+ * This sorting is unstable in order to reduce the computation.
+ */
+static inline
+void quantized_counting_sort(const float a[], const int n,
+                             const float quantum, const float max,
+                             uint8_t idx[], uint8_t cum[])
+{
+  const int nkeys = (int)(max / quantum) + 1;
+
+  memset(cum, 0, nkeys + 1);
+
+  // Count up the quantized values
+  for (int i = 0; i < n; i++)
+    cum[(int)(a[i] / quantum)]++;
+
+  // Compute the inclusive prefix sum i.e. the end indices; cum[nkeys] is the total
+  for (int i = 1; i <= nkeys; i++)
+    cum[i] += cum[i - 1];
+
+  // Generate the sorted indices; cum[] becomes the exclusive prefix sum i.e. the start indices of keys
+  for (int i = 0; i < n; i++)
+    idx[--cum[(int)(a[i] / quantum)]] = i;
+}
+
 
 /* ************************************************************************* */
 /**
