@@ -816,11 +816,11 @@ void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<
   float resX[ang_size], resY[ang_size], Ang[ang_size];
 
   // Get the information from the keypoint
-  int level = kpt.class_id;
-  float ratio = evolution_[level].octave_ratio;
-  const float * lx = evolution_[level].Lx.ptr<float>(0);
-  const float * ly = evolution_[level].Ly.ptr<float>(0);
-  int cols = evolution_[level].Lx.cols;
+  float ratio = evolution_[kpt.class_id].octave_ratio;
+  const float * lx = evolution_[kpt.class_id].Lx.ptr<float>(0);
+  const float * ly = evolution_[kpt.class_id].Ly.ptr<float>(0);
+  int cols = evolution_[kpt.class_id].Lx.cols;
+
   int scale = fRoundV2(0.5f * kpt.size / ratio);
   int x0 = fRoundV2(kpt.pt.x / ratio);
   int y0 = fRoundV2(kpt.pt.y / ratio);
