@@ -218,13 +218,14 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
   Mat Lflow(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lflow_.data);
   Mat Lstep(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lstep_.data);
 
-  // First compute the kcontrast factor
+  gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, options_.soffset);
+
+  // Compute the kcontrast factor
   gaussian_2D_convolutionV2(*gray, Lsmooth, 0, 0, 1.0f);
   image_derivatives(Lsmooth, Lx, Ly);
   float kcontrast = compute_k_percentileV2(Lx, Ly, options_.kcontrast_percentile, modgs_, histgram_);
 
-  // Copy the original image to the first level of the evolution
-  gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, options_.soffset);
+  // Copy the smoothed original image to the first level of the evolution
   evolution_[0].Lsmooth.copyTo(evolution_[0].Lt);
 
   // Now generate the rest of evolution levels
