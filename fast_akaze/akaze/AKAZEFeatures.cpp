@@ -472,21 +472,18 @@ void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<std::vector<KeyPoint>>&
       float dx = dst(0);
       float dy = dst(1);
 
-      if (fabs(dx) <= 1.0f && fabs(dy) <= 1.0f) {
+      if (fabs(dx) > 1.0f || fabs(dy) > 1.0f)
+        continue; // Ignore the point that is not stable
 
-        // Refine the coordinates
-        kp.pt.x += dx * ratio;
-        kp.pt.y += dy * ratio;
+      // Refine the coordinates
+      kp.pt.x += dx * ratio;
+      kp.pt.y += dy * ratio;
 
-        kp.angle = 0.0;
-        kp.size *= 2.0f; // In OpenCV the size of a keypoint its the diameter
+      kp.angle = 0.0;
+      kp.size *= 2.0f; // In OpenCV the size of a keypoint is the diameter
 
-        // Push the refined keypoint to the final storage
-        kpts.push_back(kp);
-
-      }
-
-      // Ignore the point that is not stable
+      // Push the refined keypoint to the final storage
+      kpts.push_back(kp);
     }
   }
 }
