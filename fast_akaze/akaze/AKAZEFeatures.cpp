@@ -212,7 +212,7 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
     image_derivatives_scharrV2(evolution_[i].Lsmooth, evolution_[i].Lx, 1, 0);
     image_derivatives_scharrV2(evolution_[i].Lsmooth, evolution_[i].Ly, 0, 1);
 
-    // Compute the conductivity equation
+    // Compute the conductivity equation Lflow
     switch (options_.diffusivity) {
       case KAZE::DIFF_PM_G1:
         pm_g1V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
@@ -231,12 +231,12 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
       break;
     }
 
+    // Perform Fast Explicit Diffusion on Lt
     const int total = Lstep.rows * Lstep.cols;
     float * lt = evolution_[i].Lt.ptr<float>(0);
     float * lstep = Lstep.ptr<float>(0);
     std::vector<float> & tsteps = tsteps_[i - 1];
 
-    // Perform FED n inner steps
     for (int j = 0; j < tsteps.size(); j++) {
       nld_step_scalarV2(evolution_[i].Lt, Lflow, Lstep);
 
