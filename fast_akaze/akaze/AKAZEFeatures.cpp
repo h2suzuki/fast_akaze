@@ -30,6 +30,8 @@ using namespace std;
 /// Internal Functions
 inline
 void Compute_Main_Orientation(cv::KeyPoint& kpt, const TEvolutionV2& evolution_);
+static
+void generateDescriptorSubsampleV2(cv::Mat& sampleList, cv::Mat& comparisons, int nbits, int pattern_size, int nchannels);
 
 
 /* ************************************************************************* */
@@ -1800,6 +1802,7 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
  * @note The function keeps the 18 bits (3-channels by 6 comparisons) of the
  * coarser grid, since it provides the most robust estimations
  */
+static
 void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
                                  int pattern_size, int nchannels) {
 

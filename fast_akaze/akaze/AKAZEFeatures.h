@@ -70,11 +70,6 @@ public:
   void Compute_Descriptors(std::vector<cv::KeyPoint>& kpts, cv::Mat& desc);
 };
 
-/* ************************************************************************* */
-/// Inline functions
-void generateDescriptorSubsampleV2(cv::Mat& sampleList, cv::Mat& comparisons,
-                                 int nbits, int pattern_size, int nchannels);
-
 }
 
 #endif
