@@ -107,8 +107,8 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
   // Allocate memory for workspaces
   lflow_.create(options_.img_height, options_.img_width, CV_32FC1);
   lstep_.create(options_.img_height, options_.img_width, CV_32FC1);
-  histgram_.resize(options_.kcontrast_nbins);
-  modgs_.resize((options_.img_height - 2) * (options_.img_width - 2));  // excluding the border
+  histgram_.create(1, options_.kcontrast_nbins, CV_32SC1);
+  modgs_.create(1, (options_.img_height - 2) * (options_.img_width - 2), CV_32FC1);  // excluding the border
 
   kpts_aux_.resize(evolution_.size());
   for (size_t i = 0; i < evolution_.size(); i++)

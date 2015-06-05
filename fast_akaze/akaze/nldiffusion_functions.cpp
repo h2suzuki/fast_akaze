@@ -26,6 +26,8 @@
 #include <opencv2/imgproc.hpp>
 
 #include "nldiffusion_functions.h"
+#include <cstdint>
+#include <cstring>
 #include <iostream>
 
 // Namespaces
@@ -205,45 +207,47 @@ void charbonnier_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& ds
  * @param Ly Vertical gradient of the input image
  * @param perc Percentile of the image gradient histogram (0-1)
  * @param modgs Temporal vector to hold the gradient norms
- * @param hist Temporal vector to hold the gradient histogram
+ * @param histogram Temporal vector to hold the gradient histogram
  * @return k contrast factor
  */
-float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, std::vector<float>& modgs, std::vector<int>& hist) {
+float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, cv::Mat& modgs, cv::Mat& histogram) {
 
-    const int nbins = (int)hist.size();
-    const int total = (int)modgs.size();
+    const int total = modgs.cols;
+    const int nbins = histogram.cols;
 
     CV_DbgAssert(total == (Lx.rows - 2)*(Lx.cols - 2));
     CV_DbgAssert(nbins > 2);
 
-    float *p = &modgs[0];
+    float *modg = modgs.ptr<float>(0);
+    int32_t *hist = histogram.ptr<int32_t>(0);
+
     for (int i = 1; i < Lx.rows - 1; i++) {
         const float *lx = Lx.ptr<float>(i) + 1;
         const float *ly = Ly.ptr<float>(i) + 1;
         const int cols = Lx.cols - 2;
 
         for (int j = 0; j < cols; j++)
-            *p++ = sqrtf(lx[j] * lx[j] + ly[j] * ly[j]);
+            *modg++ = sqrtf(lx[j] * lx[j] + ly[j] * ly[j]);
     }
+    modg = modgs.ptr<float>(0);
 
     // Get the maximum
     float hmax = 0.0f;
     for (int i = 0; i < total; i++)
-        if (hmax < modgs[i])
-            hmax = modgs[i];
+        if (hmax < modg[i])
+            hmax = modg[i];
 
     if (hmax == 0.0f)
         return 0.03f;  // e.g. a blank image
 
     // Compute the bin numbers: the value range [0, hmax] -> [0, nbins-1]
-    p = &modgs[0];
     for (int i = 0; i < total; i++)
-        *p++ *= (nbins - 1) / hmax;
+        modg[i] *= (nbins - 1) / hmax;
 
     // Count up
-    hist.assign(nbins, 0);
+    std::memset(hist, 0, sizeof(int32_t)*nbins);
     for (int i = 0; i < total; i++)
-        hist[(int)modgs[i]]++;
+        hist[(int)modg[i]]++;
 
     // Now find the perc of the histogram percentile
     const int nthreshold = (int)((total - hist[0]) * perc);  // Exclude hist[0] as background
