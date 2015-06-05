@@ -223,7 +223,7 @@ float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, s
         const int cols = Lx.cols - 2;
 
         for (int j = 0; j < cols; j++)
-            *p++ = lx[j] * lx[j] + ly[j] * ly[j];
+            *p++ = sqrtf(lx[j] * lx[j] + ly[j] * ly[j]);
     }
 
     // Get the maximum
@@ -238,7 +238,7 @@ float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, s
     // Compute the histogram bin number
     p = &modgs[0];
     for (int i = 0; i < total; i++)
-        p[i] = (nbins - 1) * sqrtf(p[i] / hmax);  // value range [0, nbins-1]
+        *p++ *= (nbins - 1) / hmax;
 
     // Count up
     hist.assign(nbins, 0);
@@ -254,7 +254,7 @@ float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, s
     int nelements = 0;
     for (int k = 1; k < nbins; k++) {
         if (nelements >= nthreshold)
-            return sqrtf(hmax) * k / nbins;
+            return (float)hmax * k / nbins;
 
         nelements = nelements + hist[k];
     }
