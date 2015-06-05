@@ -109,5 +109,8 @@
     <Text Include="..\perf_tests\R8.3 - Refactor Find_Scale_Space_Extrema.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R8.4 - Refactor Do_Subpixel_Refinement.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>
