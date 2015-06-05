@@ -121,5 +121,8 @@
     <Text Include="..\perf_tests\R8.7 - Refactor Compute_Determinant_Hessian_Response.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R8.8 - Refactor compute_k_percentile (revisited).txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>
