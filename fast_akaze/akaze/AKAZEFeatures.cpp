@@ -141,6 +141,36 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
 
 }
 
+/* ************************************************************************* */
+/**
+ * @brief This function wraps the parallel computation of Scharr derivatives.
+ * @param Lsmooth Input image to compute Scharr derivatives.
+ * @param Lx Output derivative image (horizontal)
+ * @param Ly Output derivative image (vertical)
+ * should be parallelized or not.
+ */
+static inline
+void image_derivatives(const cv::Mat& Lsmooth, cv::Mat& Lx, cv::Mat& Ly)
+{
+#ifdef AKAZE_USE_CPP11_THREADING
+
+  int n = (Lsmooth.rows * Lsmooth.cols) / (1 << 15) + 1;
+
+  if (getNumThreads() > 1 && n > 1) {
+    auto task = async(launch::async, image_derivatives_scharrV2, Lsmooth, Lx, 1, 0);
+
+    image_derivatives_scharrV2(Lsmooth, Ly, 0, 1);
+    task.get();
+    return;
+  }
+
+#else
+
+  image_derivatives_scharrV2(Lsmooth, Lx, 1, 0);
+  image_derivatives_scharrV2(Lsmooth, Ly, 0, 1);
+
+#endif
+}
 
 /* ************************************************************************* */
 /**
@@ -178,10 +208,10 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
     return 0;
   }
 
+
   // First compute the kcontrast factor
   gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, 1.0f);
-  image_derivatives_scharrV2(evolution_[0].Lsmooth, evolution_[0].Lx, 1, 0);
-  image_derivatives_scharrV2(evolution_[0].Lsmooth, evolution_[0].Ly, 0, 1);
+  image_derivatives(evolution_[0].Lsmooth, evolution_[0].Lx, evolution_[0].Ly);
   float kcontrast = compute_k_percentileV2(evolution_[0].Lx, evolution_[0].Ly, options_.kcontrast_percentile, modgs_, histgram_);
 
   // Copy the original image to the first level of the evolution
@@ -209,8 +239,7 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
 
     // Compute the Gaussian derivatives Lx and Ly
     gaussian_2D_convolutionV2(evolution_[i].Lt, evolution_[i].Lsmooth, 0, 0, 1.0f);
-    image_derivatives_scharrV2(evolution_[i].Lsmooth, evolution_[i].Lx, 1, 0);
-    image_derivatives_scharrV2(evolution_[i].Lsmooth, evolution_[i].Ly, 0, 1);
+    image_derivatives(evolution_[i].Lsmooth, evolution_[i].Lx, evolution_[i].Ly);
 
     // Compute the conductivity equation Lflow
     switch (options_.diffusivity) {
