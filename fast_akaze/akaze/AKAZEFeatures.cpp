@@ -830,8 +830,8 @@ void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<
   for (int i = -6; i <= 6; ++i) {
     for (int j = -6; j <= 6; ++j) {
       if (i*i + j*j < 36) {
-        int iy = y0 + j * scale;
-        int ix = x0 + i * scale;
+        int iy = y0 + i * scale;
+        int ix = x0 + j * scale;
 
         float gweight = gauss25[id[i + 6]][id[j + 6]];
         resX[idx] = gweight * lx[iy * cols + ix];
