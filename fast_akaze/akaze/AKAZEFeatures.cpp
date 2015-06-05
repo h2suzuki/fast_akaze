@@ -1631,12 +1631,12 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
     float dx = 0.0f;
     float dy = 0.0f;
 
-    for (int k = coords[1]; k < coords[1] + sample_step; k++) {
-      for (int l = coords[2]; l < coords[2] + sample_step; l++) {
+    for (int x = coords[1]; x < coords[1] + coords[0]; x++) {
+      for (int y = coords[2]; y < coords[2] + coords[0]; y++) {
 
         // Get the coordinates of the sample point
-        int y1 = fRoundV2(yf + ( l*scale*co + k*scale*si));
-        int x1 = fRoundV2(xf + (-l*scale*si + k*scale*co));
+        int x1 = fRoundV2(xf + (x*scale*co - y*scale*si));
+        int y1 = fRoundV2(yf + (x*scale*si + y*scale*co));
 
         di += *(e.Lt.ptr<float>(y1)+x1);
 
@@ -1709,12 +1709,12 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
     float dx = 0.0f;
     float dy = 0.0f;
 
-    for (int k = coords[1]; k < coords[1] + sample_step; k++) {
-      for (int l = coords[2]; l < coords[2] + sample_step; l++) {
+    for (int x = coords[1]; x < coords[1] + coords[0]; x++) {
+      for (int y = coords[2]; y < coords[2] + coords[0]; y++) {
 
         // Get the coordinates of the sample point
-        int x1 = fRoundV2(xf + k*scale);
-        int y1 = fRoundV2(yf + l*scale);
+        int x1 = fRoundV2(xf + x*scale);
+        int y1 = fRoundV2(yf + y*scale);
 
         di += *(evolution_[level].Lt.ptr<float>(y1)+x1);
 
