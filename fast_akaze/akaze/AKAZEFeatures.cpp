@@ -826,18 +826,16 @@ void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<
   int y0 = fRoundV2(kpt.pt.y / ratio);
 
   // Calculate derivatives responses for points within radius of 6*scale
-  int idx = 0;
+  int k = 0;
   for (int i = -6; i <= 6; ++i) {
     for (int j = -6; j <= 6; ++j) {
       if (i*i + j*j < 36) {
-        int iy = y0 + i * scale;
-        int ix = x0 + j * scale;
-
         float gweight = gauss25[id[i + 6]][id[j + 6]];
-        resX[idx] = gweight * lx[iy * cols + ix];
-        resY[idx] = gweight * ly[iy * cols + ix];
 
-        ++idx;
+        int idx = (y0 + i * scale) * cols + (x0 + j * scale);
+        resX[k] = gweight * lx[idx];
+        resY[k] = gweight * ly[idx];
+        ++k;
       }
     }
   }
