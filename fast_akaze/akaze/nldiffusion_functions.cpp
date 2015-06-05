@@ -235,7 +235,7 @@ float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, s
     if (hmax == 0.0f)
         return 0.03f;  // e.g. a blank image
 
-    // Compute the histogram bin number
+    // Compute the bin numbers: the value range [0, hmax] -> [0, nbins-1]
     p = &modgs[0];
     for (int i = 0; i < total; i++)
         *p++ *= (nbins - 1) / hmax;
