@@ -115,5 +115,8 @@
     <Text Include="..\perf_tests\R8.5 - Refactor Compute_Main_Orientation.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R8.6 - Refactor Get_MLDB_Descriptor_Subset.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>
