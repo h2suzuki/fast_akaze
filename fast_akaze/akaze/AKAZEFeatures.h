@@ -56,6 +56,7 @@ private:
   using task = std::future<void>;
   std::vector<std::vector<task>> tasklist_;
   std::vector<std::atomic_int> taskdeps_;
+  std::future<float> kcontrast_;
 #endif
 
 public:
@@ -72,6 +73,7 @@ public:
   /// Scale Space methods
   void Allocate_Memory_Evolution();
   int Create_Nonlinear_Scale_Space(const cv::Mat& img);
+  float Compute_Base_Evolution_Level(const cv::Mat& img);
   void Feature_Detection(std::vector<cv::KeyPoint>& kpts);
   void Compute_Determinant_Hessian_Response(const int level);
   void Compute_Determinant_Hessian_Response_Single(const int level);

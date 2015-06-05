@@ -174,6 +174,53 @@ void image_derivatives(const cv::Mat& Lsmooth, cv::Mat& Lx, cv::Mat& Ly)
 #endif
 }
 
+
+/* ************************************************************************* */
+/**
+ * @brief This method compute the first evolution step of the nonlinear scale space
+ * @param img Input image for which the nonlinear scale space needs to be created
+ * @return kcontrast factor
+ */
+float AKAZEFeaturesV2::Compute_Base_Evolution_Level(const cv::Mat& img)
+{
+  Mat Lsmooth(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lflow_.data /* like-a-union */);
+  Mat Lx(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lx_.data);
+  Mat Ly(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, ly_.data);
+
+#ifdef AKAZE_USE_CPP11_THREADING
+
+  if (getNumThreads() > 2 && (img.rows * img.cols) > (1 << 16)) {
+
+    auto e0_Lsmooth = async(launch::async, gaussian_2D_convolutionV2, img, evolution_[0].Lsmooth, 0, 0, options_.soffset);
+
+    gaussian_2D_convolutionV2(img, Lsmooth, 0, 0, 1.0f);
+    image_derivatives(Lsmooth, Lx, Ly);
+    kcontrast_ = async(launch::async, compute_k_percentileV2, Lx, Ly, options_.kcontrast_percentile, modgs_, histgram_);
+
+    e0_Lsmooth.get();
+    Compute_Determinant_Hessian_Response(0);
+
+    evolution_[0].Lsmooth.copyTo(evolution_[0].Lt);
+    return 1.0f;
+  }
+
+#endif
+
+  // Compute the determinant Hessian
+  gaussian_2D_convolutionV2(img, evolution_[0].Lsmooth, 0, 0, options_.soffset);
+  Compute_Determinant_Hessian_Response(0);
+
+  // Compute the kcontrast factor using local variables
+  gaussian_2D_convolutionV2(img, Lsmooth, 0, 0, 1.0f);
+  image_derivatives(Lsmooth, Lx, Ly);
+  float kcontrast = compute_k_percentileV2(Lx, Ly, options_.kcontrast_percentile, modgs_, histgram_);
+
+  // Copy the smoothed original image to the first level of the evolution Lt
+  evolution_[0].Lsmooth.copyTo(evolution_[0].Lt);
+
+  return kcontrast;
+}
+
 /* ************************************************************************* */
 /**
  * @brief This method creates the nonlinear scale space for a given image
@@ -211,25 +258,14 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
   }
 
 
+  // First compute Lsmooth, Hessian, and the kcontrast factor for the base evolution level
+  float kcontrast = Compute_Base_Evolution_Level(*gray);
+
   // Prepare Mats to be used as local workspace
   Mat Lx(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lx_.data);
   Mat Ly(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, ly_.data);
-  Mat Lsmooth(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lflow_.data); /* the memory shared with Lflow */
   Mat Lflow(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lflow_.data);
   Mat Lstep(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lstep_.data);
-
-
-  // Compute Ldet for the first evolution level, as early as possible
-  gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, options_.soffset);
-  Compute_Determinant_Hessian_Response(0);
-
-  // Compute the kcontrast factor
-  gaussian_2D_convolutionV2(*gray, Lsmooth, 0, 0, 1.0f);
-  image_derivatives(Lsmooth, Lx, Ly);
-  float kcontrast = compute_k_percentileV2(Lx, Ly, options_.kcontrast_percentile, modgs_, histgram_);
-
-  // Copy the smoothed original image to the first level of the evolution
-  evolution_[0].Lsmooth.copyTo(evolution_[0].Lt);
 
   // Now generate the rest of evolution levels
   for (size_t i = 1; i < evolution_.size(); i++) {
@@ -251,6 +287,11 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
     // Compute Ldet; if possible do it in parallel to FED cycles
     gaussian_2D_convolutionV2(evolution_[i].Lt, evolution_[i].Lsmooth, 0, 0, 1.0f);
     Compute_Determinant_Hessian_Response((int)i);
+
+#ifdef AKAZE_USE_CPP11_THREADING
+    if (kcontrast_.valid())
+      kcontrast *= kcontrast_.get();  /* Join the kcontrast task so Lx and Ly can be reused */
+#endif
 
     // Compute the Gaussian derivatives Lx and Ly
     image_derivatives(evolution_[i].Lsmooth, Lx, Ly);
