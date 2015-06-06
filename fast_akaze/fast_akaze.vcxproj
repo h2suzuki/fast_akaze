@@ -124,6 +124,7 @@
     <Text Include="..\perf_tests\R8.6 - Refactor Get_MLDB_Descriptor_Subset.txt" />
     <Text Include="..\perf_tests\R8.7 - Refactor Compute_Determinant_Hessian_Response.txt" />
     <Text Include="..\perf_tests\R8.8 - Refactor compute_k_percentile (revisited).txt" />
+    <Text Include="..\perf_tests\R9.1 - Remove OpenMP spin wait.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
