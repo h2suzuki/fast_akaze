@@ -346,17 +346,17 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
   }
 
   for (int i = 0; i < (int)evolution_.size(); i++) {
+    const TEvolutionV2 &step = evolution_[i];
 
     // Descriptors of the points on the border cannot be computed; exclude them first
-    const int border = fRoundV2(smax * evolution_[i].sigma_size) + 1;
+    const int border = fRoundV2(smax * step.sigma_size) + 1;
 
-    const float * prev = evolution_[i].Ldet.ptr<float>(border - 1);
-    const float * curr = evolution_[i].Ldet.ptr<float>(border    );
-    const float * next = evolution_[i].Ldet.ptr<float>(border + 1);
+    const float * prev = step.Ldet.ptr<float>(border - 1);
+    const float * curr = step.Ldet.ptr<float>(border    );
+    const float * next = step.Ldet.ptr<float>(border + 1);
 
-    for (int y = border; y < evolution_[i].Ldet.rows - border; y++) {
-
-      for (int x = border; x < evolution_[i].Ldet.cols - border; x++) {
+    for (int y = border; y < step.Ldet.rows - border; y++) {
+      for (int x = border; x < step.Ldet.cols - border; x++) {
 
         const float value = curr[x];
 
@@ -370,12 +370,12 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
         if (value <= next[x-1] || value <= next[x  ] || value <= next[x+1])
           continue;
 
-        KeyPoint point( /* x */ static_cast<float>(x * evolution_[i].octave_ratio),
-                        /* y */ static_cast<float>(y * evolution_[i].octave_ratio),
-                        /* size */ evolution_[i].esigma*options_.derivative_factor,
+        KeyPoint point( /* x */ static_cast<float>(x * step.octave_ratio),
+                        /* y */ static_cast<float>(y * step.octave_ratio),
+                        /* size */ step.esigma * options_.derivative_factor,
                         /* angle */ -1,
                         /* response */ fabs(value),
-                        /* octave */ evolution_[i].octave,
+                        /* octave */ step.octave,
                         /* class_id */ i);
 
         int idx = 0;
@@ -401,7 +401,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
       }
       prev = curr;
       curr = next;
-      next += evolution_[i].Ldet.cols;
+      next += step.Ldet.cols;
     }
   }
 
