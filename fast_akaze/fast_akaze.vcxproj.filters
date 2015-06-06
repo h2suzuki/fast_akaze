@@ -130,5 +130,8 @@
     <Text Include="..\perf_tests\R9.2 - Parallelize Compute_Determinant_Hessian_Response.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R9.3 - Parallelize Create_Nonlinear_Scale_Space.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>
