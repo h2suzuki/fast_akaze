@@ -593,7 +593,6 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoin
   // Now filter points with the upper scale level
   for (int i = 0; i < (int)kpts_aux.size() - 1; i++) {
     for (int j = 0; j < (int)kpts_aux[i].size(); j++) {
-
       KeyPoint& pt = kpts_aux[i][j];
 
       if (pt.class_id == -1) // Skip a deleted point
