@@ -515,7 +515,8 @@ bool find_neighbor_point(const KeyPoint &p, const vector<KeyPoint> &v, const int
  * @brief This method finds extrema in the nonlinear scale space
  * @param kpts_aux Output vectors of detected keypoints; one vector for each evolution level
  */
-void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kpts_aux)
+inline
+void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoint>>& kpts_aux)
 {
   // Clear the workspace to hold the detected keypoint candidates
   for (size_t i = 0; i < kpts_aux_.size(); i++)
@@ -606,6 +607,136 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
     }
   }
 }
+
+
+#ifdef AKAZE_USE_CPP11_THREADING
+
+/* ************************************************************************* */
+/**
+ * @brief This method finds extrema in the nonlinear scale space
+ * @param kpts_aux Output vectors of detected keypoints; one vector for each evolution level
+ * @note This is parallelized version of Find_Scale_Space_Extrema()
+ */
+void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kpts_aux)
+{
+  if (getNumThreads() == 1) {
+    Find_Scale_Space_Extrema_Single(kpts_aux);
+    return;
+  }
+
+  // Set maximum size
+  float smax = 0.0;
+  if (options_.descriptor == AKAZE::DESCRIPTOR_MLDB_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_MLDB) {
+    smax = 10.0f*sqrtf(2.0f);
+  }
+  else if (options_.descriptor == AKAZE::DESCRIPTOR_KAZE_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_KAZE) {
+    smax = 12.0f*sqrtf(2.0f);
+  }
+
+  for (int i = 0; i < (int)evolution_.size(); i++) {
+    const TEvolutionV2 &step = evolution_[i];
+    vector<cv::KeyPoint> &kpts = kpts_aux[i];
+
+    // Clear the workspace to hold the keypoint candidates
+    kpts_aux_[i].clear();
+
+    tasklist_[0][i] = async(launch::async, [&step,&kpts,smax,i](const AKAZEOptionsV2 &opt)
+    {
+
+      // Descriptors cannot be computed for the points on the border; exclude them first
+      const int border = fRoundV2(smax * step.sigma_size) + 1;
+
+      const float * prev = step.Ldet.ptr<float>(border - 1);
+      const float * curr = step.Ldet.ptr<float>(border    );
+      const float * next = step.Ldet.ptr<float>(border + 1);
+
+      for (int y = border; y < step.Ldet.rows - border; y++) {
+        for (int x = border; x < step.Ldet.cols - border; x++) {
+
+          const float value = curr[x];
+
+          // Filter the points with the detector threshold
+          if (value <= opt.dthreshold || value < opt.min_dthreshold)
+            continue;
+          if (value <= curr[x-1] || value <= curr[x+1])
+            continue;
+          if (value <= prev[x-1] || value <= prev[x  ] || value <= prev[x+1])
+            continue;
+          if (value <= next[x-1] || value <= next[x  ] || value <= next[x+1])
+            continue;
+
+          KeyPoint point( /* x */ static_cast<float>(x * step.octave_ratio),
+                          /* y */ static_cast<float>(y * step.octave_ratio),
+                          /* size */ step.esigma * opt.derivative_factor,
+                          /* angle */ -1,
+                          /* response */ value,
+                          /* octave */ step.octave,
+                          /* class_id */ i);
+
+          int idx = 0;
+
+          // Compare response with the same scale
+          if (find_neighbor_point(point, kpts, 0, idx)) {
+            if (point.response > kpts[idx].response)
+              kpts[idx] = point;  // Replace the old point
+            continue;
+          }
+
+          kpts.push_back(point);
+        }
+
+        prev = curr;
+        curr = next;
+        next += step.Ldet.cols;
+      }
+
+    }, options_);
+  }
+
+  tasklist_[0][0].get();
+
+  // Filter points with the lower scale level
+  for (int i = 1; i < (int)kpts_aux.size(); i++) {
+    tasklist_[0][i].get();
+
+    for (int j = 0; j < (int)kpts_aux[i].size(); j++) {
+      KeyPoint& pt = kpts_aux[i][j];
+
+      int idx = 0;
+      if (find_neighbor_point(pt, kpts_aux[i - 1], 0, idx)) {
+        if (pt.response > kpts_aux[i - 1][idx].response)
+          kpts_aux[i - 1][idx].class_id = -1;
+        else
+          kpts_aux[i][j].class_id = -1;
+      }
+    }
+  }
+
+  // Now filter points with the upper scale level
+  for (int i = 0; i < (int)kpts_aux.size() - 1; i++) {
+    for (int j = 0; j < (int)kpts_aux[i].size(); j++) {
+      KeyPoint& pt = kpts_aux[i][j];
+
+      if (pt.class_id == -1)
+          continue; // Skip a deleted point
+
+      int idx = 0;
+      if (find_neighbor_point(pt, kpts_aux[i + 1], j + 1, idx)) {
+        if (pt.response < kpts_aux[i + 1][idx].response)
+          pt.class_id = -1; // Non extremum; mark this point deleted
+      }
+    }
+  }
+}
+
+#else
+
+void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kpts_aux) {
+  Find_Scale_Space_Extrema_Single(kpts_aux);
+}
+
+#endif
+
 
 /* ************************************************************************* */
 /**
