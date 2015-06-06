@@ -24,6 +24,12 @@ namespace cv
 {
 using namespace std;
 
+
+/// Internal Functions
+inline
+void Compute_Main_Orientation(cv::KeyPoint& kpt, const TEvolutionV2& evolution_);
+
+
 /* ************************************************************************* */
 /**
  * @brief AKAZEFeatures constructor with input options
@@ -525,8 +531,9 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      AKAZEFeaturesV2::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
-      Get_SURF_Descriptor_64((*keypoints_)[i], descriptors_->ptr<float>(i));
+      KeyPoint &kp{ (*keypoints_)[i] };
+      Compute_Main_Orientation(kp, (*evolution_)[kp.class_id]);
+      Get_SURF_Descriptor_64(kp, descriptors_->ptr<float>(i));
     }
   }
 
@@ -578,8 +585,9 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      AKAZEFeaturesV2::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
-      Get_MSURF_Descriptor_64((*keypoints_)[i], descriptors_->ptr<float>(i));
+      KeyPoint &kp{ (*keypoints_)[i] };
+      Compute_Main_Orientation(kp, (*evolution_)[kp.class_id]);
+      Get_MSURF_Descriptor_64(kp, descriptors_->ptr<float>(i));
     }
   }
 
@@ -672,8 +680,9 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      AKAZEFeaturesV2::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
-      Get_MLDB_Full_Descriptor((*keypoints_)[i], descriptors_->ptr<unsigned char>(i));
+      KeyPoint &kp{ (*keypoints_)[i] };
+      Compute_Main_Orientation(kp, (*evolution_)[kp.class_id]);
+      Get_MLDB_Full_Descriptor(kp, descriptors_->ptr<unsigned char>(i));
     }
   }
 
@@ -712,8 +721,9 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      AKAZEFeaturesV2::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
-      Get_MLDB_Descriptor_Subset((*keypoints_)[i], descriptors_->ptr<unsigned char>(i));
+      KeyPoint &kp{ (*keypoints_)[i] };
+      Compute_Main_Orientation(kp, (*evolution_)[kp.class_id]);
+      Get_MLDB_Descriptor_Subset(kp, descriptors_->ptr<unsigned char>(i));
     }
   }
 
@@ -790,13 +800,13 @@ void AKAZEFeaturesV2::Compute_Descriptors(std::vector<KeyPoint>& kpts, Mat& desc
 
 /* ************************************************************************* */
 /**
- * @brief This method computes the main orientation for a given keypoint
+ * @brief This function computes the main orientation for a given keypoint
  * @param kpt Input keypoint
  * @note The orientation is computed using a similar approach as described in the
  * original SURF method. See Bay et al., Speeded Up Robust Features, ECCV 2006
  */
 inline
-void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<TEvolutionV2>& evolution_)
+void Compute_Main_Orientation(KeyPoint& kpt, const TEvolutionV2& e)
 {
     /* ************************************************************************* */
     /// Lookup table for 2d gaussian (sigma = 2.5) where (0,0) is top left and (6,6) is bottom right
@@ -815,15 +825,14 @@ void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<
   const int ang_size = 109;
   float resX[ang_size], resY[ang_size], Ang[ang_size];
 
-  float ratio = evolution_[kpt.class_id].octave_ratio;
-  const float * lx = evolution_[kpt.class_id].Lx.ptr<float>(0);
-  const float * ly = evolution_[kpt.class_id].Ly.ptr<float>(0);
-  int cols = evolution_[kpt.class_id].Lx.cols;
+  const float * lx = e.Lx.ptr<float>(0);
+  const float * ly = e.Ly.ptr<float>(0);
+  int cols = e.Lx.cols;
 
   // Get the information from the keypoint
-  int scale = fRoundV2(0.5f * kpt.size / ratio);
-  int x0 = fRoundV2(kpt.pt.x / ratio);
-  int y0 = fRoundV2(kpt.pt.y / ratio);
+  int scale = fRoundV2(0.5f * kpt.size / e.octave_ratio);
+  int x0 = fRoundV2(kpt.pt.x / e.octave_ratio);
+  int y0 = fRoundV2(kpt.pt.y / e.octave_ratio);
 
   // Calculate derivatives responses for points within radius of 6*scale
   int k = 0;
