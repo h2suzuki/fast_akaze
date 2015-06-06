@@ -136,5 +136,11 @@
     <Text Include="..\perf_tests\R9.4 - Tune the stride size of Compute_Descriptors.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R9.5 - Parallelize Find_Scale_Space_Extrema.txt">
+      <Filter>Test Results</Filter>
+    </Text>
+    <Text Include="..\perf_tests\Profiler Results - R9.5.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>

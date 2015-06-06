@@ -1,0 +1,128 @@
+R9.5 Instrumentation Profiling Results - May 28, 2015
+
+
+  The following tables show the functions that run longer than 0.1% of the total elapsed CPU time.
+
+
+  [Single Thread Version]
+                                                    |  Average Duration by Profiler |  Calculated   |
+                                                    |  Total Ratio  |   Each Call   |  Cumulative   |
+    +-----------------------------------------------+---------------+---------------+---------------+
+    | Thread: run_akaze2                            |  50.03 %      |               |  31.07 msec   |
+    |                                               |               |               |               |
+    | detectAndCompute                              |       47.08 % |    29.24 msec |    29.24 msec |
+    |  |                                            |               |               |               |
+    |  + Create_Nonlinear_Scale_Space               |       41.76 % |    25.94 msec |    25.94 msec |
+    |  |  + Compute_Determinant_Hessian_Response    |       21.34 % |     0.89 msec |    13.25 msec |
+    |  |  |  + sepFilter2D                          |       17.93 % |     0.15 msec |    11.14 msec |
+    |  |  + nld_step_scalar                         |        6.03 % |     0.02 msec |     3.75 msec |
+    |  |  + Compute_Base_Evolution_Level            |        5.90 % |     3.66 msec |     3.66 msec |
+    |  |  |  + Compute_Determinant_Hessian_Response |        3.30 % |     2.05 msec |     2.05 msec |
+    |  |  |  + GaussianBlur                         |        1.68 % |     0.52 msec |     1.04 msec |
+    |  |  |  + compute_k_percentile                 |        0.65 % |     0.40 msec |     0.40 msec |
+    |  |  |  + copyTo                               |        0.27 % |     0.16 msec |     0.17 msec |
+    |  |  + GaussianBlur                            |        2.33 % |     0.10 msec |     1.45 msec |
+    |  |  + pm_g2                                   |        2.08 % |     0.09 msec |     1.29 msec |
+    |  |  + copyTo                                  |        0.64 % |     0.03 msec |     0.40 msec |
+    |  |  + cvtColor                                |        0.52 % |     0.32 msec |     0.36 msec |
+    |  |  + resize                                  |        0.49 % |     0.10 msec |     0.30 msec |
+    |  |  + convertTo                               |        0.30 % |     0.18 msec |     0.19 msec |
+    |  |                                            |               |               |               |
+    |  + Compute_Descriptors                        |        3.77 % |     2.36 msec |     2.34 msec |
+    |  |  + Get_MLDB_Descriptor_Subset              |        3.22 % |     0.01 msec |     2.00 msec |
+    |  |  + Compute_Main_Orientation                |        0.54 % |     0.00 msec |     0.34 msec |
+    |  |                                            |               |               |               |
+    |  + Find_Scale_Space_Extrema                   |        1.50 % |     0.94 msec |     0.93 msec |
+    |                                               |               |               |               |
+    | draw_frame                                    |        1.44 % |     0.89 msec |     0.89 msec |
+    | DescriptorMatcher::match                      |        1.22 % |     0.76 msec |     0.76 msec |
+    | imshow                                        |        0.29 % |     0.19 msec |     0.18 msec |
+    |                                               |               |               |               |
+    | --------------------------------------------- | ------------- | ------------- | ------------- |
+    | Thread: main                                  |  49.88 %      |               |  30.98 msec   |
+    |                                               |               |               |               |
+    | waitKey                                       |       35.94 % |    23.81 msec |    22.32 msec |
+    | VideoCapture                                  |       13.65 % |     9.12 msec |     8.48 msec |
+    | imshow                                        |        0.29 % |     0.19 msec |     0.18 msec |
+    | --------------------------------------------- | ------------- | ------------- | ------------- |
+    | (others)                                      |   0.09 %      |               |   0.06 msec   |
+    +-----------------------------------------------+---------------+---------------+---------------+
+                                                      100.00 %          Total Elapsed: 62.11 msec
+                                                                         (minus main): 31.13 msec
+
+  [Eight Thread Version]
+                                                    |  Average Duration by Profiler |  Calculated   |
+                                                    |  Total Ratio  |   Each Call   |  Cumulative   |
+    +-----------------------------------------------+---------------+---------------+---------------+
+    | Thread: run_akaze2                            |  23.37 %      |               |  24.09 msec   |
+    |                                               |               |               |               |
+    | detectAndCompute                              |       21.42 % |    22.08 msec |    22.08 msec |
+    |  |                                            |               |               |               |
+    |  + Create_Nonlinear_Scale_Space               |       19.85 % |    20.46 msec |    20.46 msec |
+    |  |  + nld_step_scalar                         |        7.47 % |     0.05 msec |     7.70 msec |
+    |  |  + GaussianBlur                            |        2.72 % |     0.19 msec |     2.80 msec |
+    |  |  + Scharr                                  |        1.97 % |     0.29 msec |     2.03 msec |
+    |  |  + Compute_Base_Evolution_Level            |        1.58 % |     1.62 msec |     1.63 msec |
+    |  |  |  + GaussianBlur                         |        0.52 % |     0.53 msec |     0.54 msec |
+    |  |  |  + Scharr                               |        0.42 % |     0.43 msec |     0.43 msec |
+    |  |  |  + future::get                          |        0.31 % |     0.16 msec |     0.32 msec | wait: gaussian
+    |  |  |  + copyTo                               |        0.24 % |     0.24 msec |     0.25 msec |
+    |  |  + pm_g2                                   |        1.56 % |     0.11 msec |     1.61 msec |
+    |  |  + copyTo                                  |        0.59 % |     0.05 msec |     0.61 msec |
+    |  |  + resize                                  |        0.56 % |     0.19 msec |     0.58 msec |
+    |  |  + convertTo                               |        0.29 % |     0.30 msec |     0.30 msec |
+    |  |  + future::get                             |        0.27 % |     0.03 msec |     0.28 msec | wait: kcontrast and hessian
+    |  |  + Compute_Determinant_Hessian_Response    |        0.24 % |     0.02 msec |     0.25 msec |
+    |  |  + cvtColor                                |        0.18 % |     0.19 msec |     0.19 msec |
+    |  |                                            |               |               |               |
+    |  + Compute_Descriptors                        |        0.93 % |     0.96 msec |     0.96 msec |
+    |  |  + Get_MLDB_Descriptor_Subset              |        0.55 % |     0.02 msec |     0.57 msec |
+    |  |                                            |               |               |               |
+    |  + Find_Scale_Space_Extrema                   |        0.58 % |     0.60 msec |     0.60 msec |
+    |     + future::get                             |        0.48 % |     0.03 msec |     0.49 msec | wait: keypoint candidates
+    |                                               |               |               |               |
+    | draw_frame                                    |        1.46 % |     1.50 msec |     1.50 msec |
+    | imshow                                        |        0.21 % |     0.24 msec |     0.22 msec |
+    | DescriptorMatcher::match                      |        0.28 % |     0.29 msec |     0.29 msec |
+    |                                               |               |               |               |
+    | --------------------------------------------- | ------------- | ------------- | ------------- |
+    | Thread: std::async and OpenMP                 |  52.95 %      |               |  54.58 msec   |
+    |                                               |               |               |               |
+    | Concurrency::details::_PPLTaskHandle::invoke  |       21.72 % |     1.40 msec |    22.39 msec | compute Lxx
+    |  + Compute_Determinant_Hessian_Response async1|       21.63 % |     1.39 msec |    22.30 msec |
+    |    + sepFilter2D                              |       13.38 % |     0.32 msec |    13.79 msec |
+    |                                               |               |               |               |
+    | Concurrency::details::_PPLTaskHandle::invoke  |       20.05 % |     1.29 msec |    20.67 msec | compute Lyy
+    |  + Compute_Determinant_Hessian_Response async0|       19.96 % |     1.29 msec |    20.58 msec |
+    |    + sepFilter2D                              |       12.56 % |     0.35 msec |    12.95 msec |
+    |                                               |               |               |               |
+    | MLDB_Descriptor_Subset_Invoker::operator()    |        3.94 % |     0.53 msec |     4.06 msec |
+    |  + Get_MLDB_Descriptor_Subset                 |        3.49 % |     0.03 msec |     3.60 msec |
+    |  + Compute_Main_Orientation                   |        0.44 % |     0.00 msec |     0.45 msec |
+    |                                               |               |               |               |
+    | Concurrency::details::_PPLTaskHandle::invoke  |        2.53 % |     0.33 msec |     2.61 msec | image_derivatives_scharr
+    |  + Scharr                                     |        2.26 % |     0.29 msec |     2.33 msec |
+    |  + _Mtx_unlock                                |        0.17 % |     0.02 msec |     0.18 msec |
+    |                                               |               |               |               |
+    | Concurrency::details::_PPLTaskHandle::invoke  |        2.32 % |     0.15 msec |     2.39 msec | find keypoint candidates
+    |  + Find_Scale_Space_Extrema async             |        2.15 % |     0.14 msec |     2.22 msec |
+    |                                               |               |               |               |
+    | Concurrency::details::_PPLTaskHandle::invoke  |        1.26 % |     1.29 msec |     1.30 msec |
+    |  + compute_k_percentile                       |        1.11 % |     1.14 msec |     1.14 msec |
+    |                                               |               |               |               |
+    | Concurrency::details::_PPLTaskHandle::invoke  |        1.13 % |     1.16 msec |     1.16 msec | gaussian_2D_convolution
+    |  + GaussianBlur                               |        1.11 % |     1.14 msec |     1.14 msec |
+    |                                               |               |               |               |
+    | --------------------------------------------- | ------------- | ------------- | ------------- |
+    | Thread: main                                  |  23.53 %      |               |  24.26 msec   |
+    |                                               |               |               |               |
+    | waitKey                                       |       17.16 % |    24.22 msec |    17.69 msec |
+    | VideoCapture                                  |        6.17 % |     8.70 msec |     6.36 msec |
+    | imshow                                        |        0.20 % |     0.24 msec |     0.21 msec |
+    | --------------------------------------------- | ------------- | ------------- | ------------- |
+    | (others)                                      |   0.15 %      |               |   0.15 msec   |
+    +-----------------------------------------------+---------------+---------------+---------------+
+                                                      100.00 %         Total Elapsed: 103.08 msec
+                                                                         (minus main): 78.82 msec
+
+END.
