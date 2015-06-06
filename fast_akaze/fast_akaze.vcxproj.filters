@@ -133,5 +133,8 @@
     <Text Include="..\perf_tests\R9.3 - Parallelize Create_Nonlinear_Scale_Space.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R9.4 - Tune the stride size of Compute_Descriptors.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>
