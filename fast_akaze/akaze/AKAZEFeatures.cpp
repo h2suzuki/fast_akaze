@@ -518,7 +518,7 @@ bool find_neighbor_point(const KeyPoint &p, const vector<KeyPoint> &v, const int
 inline
 void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoint>>& kpts_aux)
 {
-  // Clear the workspace to hold the detected keypoint candidates
+  // Clear the workspace to hold the keypoint candidates
   for (size_t i = 0; i < kpts_aux_.size(); i++)
     kpts_aux_[i].clear();
 
@@ -534,7 +534,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoin
   for (int i = 0; i < (int)evolution_.size(); i++) {
     const TEvolutionV2 &step = evolution_[i];
 
-    // Descriptors of the points on the border cannot be computed; exclude them first
+    // Descriptors cannot be computed for the points on the border; exclude them first
     const int border = fRoundV2(smax * step.sigma_size) + 1;
 
     const float * prev = step.Ldet.ptr<float>(border - 1);
