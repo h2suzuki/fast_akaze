@@ -1,0 +1,23 @@
+Rx: xxxx - dddd
+
+Description:
+
+
+a. Debug configuration, 64-bit build, single thread
+
+
+
+b. Debug configuration, 64-bit build, eight threads; OPENCV_THREAD_COUNT==8
+
+
+
+c. Release configuration, 64-bit build, single thread
+
+
+
+d. Release configuration, 64-bit build, eight threads; OPENCV_THREAD_COUNT==8
+
+
+
+
+END.
