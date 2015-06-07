@@ -1,0 +1,146 @@
+R9.4: Tune the stride size of Compute_Descriptors - May 27, 2015
+
+Description:
+  The optimization tweaks the stride size of Compute_Descriptors().
+
+  The stride size was introduced during the iteration of R9.1.  The stride
+  size specifies one parallel block contains 512 keypoints on average.
+
+  On the other hand, the images of performance measurements generate less
+  than 200 keypoints. So, Compute_Descriptors() has been serialized.
+
+  Now, the parallelism is restored to fit the current testing environment.
+
+
+a. Debug configuration, 64-bit build, single thread
+
+AKAZE2: Last 250.014ms 4.000fps | Int 5249ms 21fr 4.001fps | EMA 3.993fps
+AKAZE2: Last 251.014ms 3.984fps | Int 5248ms 21fr 4.001fps | EMA 3.995fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5243ms 21fr 4.005fps | EMA 3.997fps
+AKAZE2: Last 246.014ms 4.065fps | Int 5233ms 21fr 4.013fps | EMA 4.000fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5248ms 21fr 4.001fps | EMA 4.000fps
+AKAZE2: Last 248.014ms 4.032fps | Int 5239ms 21fr 4.008fps | EMA 4.002fps
+AKAZE2: Last 252.014ms 3.968fps | Int 5240ms 21fr 4.007fps | EMA 4.003fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5239ms 21fr 4.008fps | EMA 4.004fps
+AKAZE2: Last 250.014ms 4.000fps | Int 5001ms 20fr 3.999fps | EMA 4.003fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5229ms 21fr 4.016fps | EMA 4.006fps
+AKAZE2: Last 250.014ms 4.000fps | Int 5235ms 21fr 4.011fps | EMA 4.007fps
+AKAZE2: Last 252.014ms 3.968fps | Int 5247ms 21fr 4.002fps | EMA 4.006fps
+AKAZE2: Last 247.014ms 4.048fps | Int 5236ms 21fr 4.010fps | EMA 4.007fps
+AKAZE2: Last 252.014ms 3.968fps | Int 5240ms 21fr 4.007fps | EMA 4.007fps
+AKAZE2: Last 251.014ms 3.984fps | Int 5002ms 20fr 3.998fps | EMA 4.005fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5242ms 21fr 4.006fps | EMA 4.005fps
+AKAZE2: Last 250.014ms 4.000fps | Int 5241ms 21fr 4.007fps | EMA 4.006fps
+AKAZE2: Last 248.014ms 4.032fps | Int 5236ms 21fr 4.010fps | EMA 4.007fps
+AKAZE2: Last 248.014ms 4.032fps | Int 5239ms 21fr 4.008fps | EMA 4.007fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5241ms 21fr 4.007fps | EMA 4.007fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5230ms 21fr 4.015fps | EMA 4.008fps
+AKAZE2: Last 250.014ms 4.000fps | Int 5246ms 21fr 4.003fps | EMA 4.007fps
+AKAZE2: Last 247.014ms 4.048fps | Int 5237ms 21fr 4.010fps | EMA 4.008fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5235ms 21fr 4.011fps | EMA 4.008fps
+
+
+b. Debug configuration, 64-bit build, eight threads; OPENCV_THREAD_COUNT==8
+
+AKAZE2: Last 122.007ms 8.196fps | Int 5012ms 41fr 8.180fps | EMA 8.149fps
+AKAZE2: Last 122.007ms 8.196fps | Int 5037ms 41fr 8.139fps | EMA 8.147fps
+AKAZE2: Last 124.007ms 8.064fps | Int 5033ms 41fr 8.146fps | EMA 8.147fps
+AKAZE2: Last 123.007ms 8.130fps | Int 5009ms 41fr 8.185fps | EMA 8.154fps
+AKAZE2: Last 121.006ms 8.264fps | Int 5012ms 41fr 8.180fps | EMA 8.159fps
+AKAZE2: Last 122.007ms 8.196fps | Int 5017ms 41fr 8.172fps | EMA 8.162fps
+AKAZE2: Last 122.007ms 8.196fps | Int 5018ms 41fr 8.170fps | EMA 8.163fps
+AKAZE2: Last 122.006ms 8.196fps | Int 5032ms 41fr 8.147fps | EMA 8.160fps
+AKAZE2: Last 123.007ms 8.130fps | Int 5017ms 41fr 8.172fps | EMA 8.163fps
+AKAZE2: Last 123.007ms 8.130fps | Int 5019ms 41fr 8.168fps | EMA 8.164fps
+AKAZE2: Last 121.006ms 8.264fps | Int 5013ms 41fr 8.178fps | EMA 8.167fps
+AKAZE2: Last 124.007ms 8.064fps | Int 5046ms 41fr 8.125fps | EMA 8.158fps
+AKAZE2: Last 123.007ms 8.130fps | Int 5035ms 41fr 8.143fps | EMA 8.155fps
+AKAZE2: Last 122.007ms 8.196fps | Int 5034ms 41fr 8.144fps | EMA 8.153fps
+AKAZE2: Last 122.007ms 8.196fps | Int 5024ms 41fr 8.160fps | EMA 8.154fps
+AKAZE2: Last 122.007ms 8.196fps | Int 5032ms 41fr 8.147fps | EMA 8.153fps
+AKAZE2: Last 123.007ms 8.130fps | Int 5011ms 41fr 8.182fps | EMA 8.159fps
+AKAZE2: Last 122.007ms 8.196fps | Int 5034ms 41fr 8.144fps | EMA 8.156fps
+AKAZE2: Last 123.007ms 8.130fps | Int 5015ms 41fr 8.175fps | EMA 8.160fps
+AKAZE2: Last 124.007ms 8.064fps | Int 5060ms 41fr 8.102fps | EMA 8.148fps
+AKAZE2: Last 122.007ms 8.196fps | Int 5026ms 41fr 8.157fps | EMA 8.150fps
+AKAZE2: Last 122.007ms 8.196fps | Int 5032ms 41fr 8.147fps | EMA 8.149fps
+AKAZE2: Last 122.007ms 8.196fps | Int 5012ms 41fr 8.180fps | EMA 8.156fps
+AKAZE2: Last 121.006ms 8.264fps | Int 5005ms 41fr 8.191fps | EMA 8.163fps
+
+
+c. Release configuration, 64-bit build, single thread
+
+AKAZE2: Last 30.001ms 33.332fps | Int 5000ms 166fr 33.198fps | EMA 33.189fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5022ms 167fr 33.252fps | EMA 33.202fps
+AKAZE2: Last 29.001ms 34.482fps | Int 5028ms 167fr 33.212fps | EMA 33.204fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5014ms 167fr 33.305fps | EMA 33.224fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5001ms 166fr 33.191fps | EMA 33.218fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5027ms 167fr 33.219fps | EMA 33.218fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5022ms 167fr 33.252fps | EMA 33.225fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5027ms 166fr 33.020fps | EMA 33.184fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5023ms 165fr 32.847fps | EMA 33.116fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5022ms 165fr 32.854fps | EMA 33.064fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5011ms 161fr 32.127fps | EMA 32.876fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5011ms 165fr 32.926fps | EMA 32.886fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5020ms 165fr 32.867fps | EMA 32.882fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5005ms 165fr 32.965fps | EMA 32.899fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5025ms 165fr 32.834fps | EMA 32.886fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5023ms 165fr 32.847fps | EMA 32.878fps
+AKAZE2: Last 32.001ms 31.249fps | Int 5010ms 165fr 32.932fps | EMA 32.889fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5018ms 165fr 32.880fps | EMA 32.887fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5021ms 165fr 32.860fps | EMA 32.882fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5007ms 165fr 32.952fps | EMA 32.896fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5005ms 165fr 32.965fps | EMA 32.910fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5022ms 165fr 32.854fps | EMA 32.898fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5008ms 165fr 32.945fps | EMA 32.908fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5023ms 166fr 33.046fps | EMA 32.935fps
+
+
+d. Release configuration, 64-bit build, eight threads; OPENCV_THREAD_COUNT==8
+
+AKAZE2: Last 20.001ms 49.998fps | Int 5015ms 276fr 55.032fps | EMA 54.987fps
+AKAZE2: Last 18.001ms 55.552fps | Int 5009ms 276fr 55.098fps | EMA 55.009fps
+AKAZE2: Last 18.001ms 55.552fps | Int 5010ms 276fr 55.087fps | EMA 55.025fps
+AKAZE2: Last 18.001ms 55.552fps | Int 5010ms 276fr 55.087fps | EMA 55.037fps
+AKAZE2: Last 18.001ms 55.552fps | Int 5013ms 277fr 55.253fps | EMA 55.080fps
+AKAZE2: Last 18.001ms 55.552fps | Int 5005ms 276fr 55.142fps | EMA 55.093fps
+AKAZE2: Last 19.001ms 52.629fps | Int 5012ms 276fr 55.065fps | EMA 55.087fps
+AKAZE2: Last 18.001ms 55.552fps | Int 5003ms 276fr 55.164fps | EMA 55.102fps
+AKAZE2: Last 19.001ms 52.629fps | Int 5000ms 276fr 55.197fps | EMA 55.121fps
+AKAZE2: Last 17.000ms 58.824fps | Int 5000ms 277fr 55.397fps | EMA 55.176fps
+AKAZE2: Last 17.000ms 58.824fps | Int 5005ms 276fr 55.142fps | EMA 55.169fps
+AKAZE2: Last 17.000ms 58.824fps | Int 5014ms 277fr 55.242fps | EMA 55.184fps
+AKAZE2: Last 18.001ms 55.552fps | Int 5006ms 277fr 55.330fps | EMA 55.213fps
+AKAZE2: Last 18.001ms 55.552fps | Int 5017ms 277fr 55.209fps | EMA 55.212fps
+AKAZE2: Last 19.001ms 52.629fps | Int 5005ms 276fr 55.142fps | EMA 55.198fps
+AKAZE2: Last 17.000ms 58.824fps | Int 5014ms 277fr 55.242fps | EMA 55.207fps
+AKAZE2: Last 19.001ms 52.629fps | Int 5017ms 277fr 55.209fps | EMA 55.207fps
+AKAZE2: Last 17.001ms 58.820fps | Int 5007ms 277fr 55.319fps | EMA 55.230fps
+AKAZE2: Last 18.001ms 55.552fps | Int 5017ms 277fr 55.209fps | EMA 55.226fps
+AKAZE2: Last 19.001ms 52.629fps | Int 5005ms 276fr 55.142fps | EMA 55.209fps
+AKAZE2: Last 19.001ms 52.629fps | Int 5008ms 275fr 54.909fps | EMA 55.149fps
+AKAZE2: Last 18.001ms 55.552fps | Int 5012ms 276fr 55.065fps | EMA 55.132fps
+AKAZE2: Last 17.001ms 58.820fps | Int 5009ms 276fr 55.098fps | EMA 55.125fps
+AKAZE2: Last 18.001ms 55.552fps | Int 5011ms 277fr 55.275fps | EMA 55.155fps
+
+
+[Additional Info]
+
+  The duration of Compute_Descriptors():
+
+    | Stride   | Concurrency | Duration |
+    +----------+-------------+----------+
+    | 2^8(256) |      1      | 2.8 msec |
+    | 2^6(64)  |      2      | 2.0 msec |
+    | 2^5(32)  |      5      | 1.0 msec |
+    | 2^4(16)  |      7      | 0.9 msec |
+    | 2^3(8)   |      7      | 0.9 msec |
+
+  The concurrency is the actual number of threads that handled the blocks of
+  keypoints.
+
+  --------
+  *: The measurement is done by concurrency visualizer and its span marker.
+     A span with no preemption / no interrupt is picked up.
+
+END.

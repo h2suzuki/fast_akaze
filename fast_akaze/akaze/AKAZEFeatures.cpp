@@ -950,7 +950,8 @@ void AKAZEFeaturesV2::Compute_Descriptors(std::vector<KeyPoint>& kpts, Mat& desc
     }
   }
 
-  const double stride = kpts.size() / (double)(1<<9); // a set of kpts are split to the chunks of approx. 1^9 kpts size
+  // Compute descriptors by blocks of 16 keypoints
+  const double stride = kpts.size() / (double)(1<<4);
 
   switch (options_.descriptor)
   {
