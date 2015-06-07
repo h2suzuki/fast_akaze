@@ -971,6 +971,7 @@ public:
     {
       Compute_Main_Orientation(keypoints_[i], evolution_[keypoints_[i].class_id]);
       Get_MLDB_Full_Descriptor(keypoints_[i], descriptors_.ptr<unsigned char>(i));
+      keypoints_[i].angle *= (float)(180.0/CV_PI);
     }
   }
 
@@ -1011,6 +1012,7 @@ public:
     {
       Compute_Main_Orientation(keypoints_[i], evolution_[keypoints_[i].class_id]);
       Get_MLDB_Descriptor_Subset(keypoints_[i], descriptors_.ptr<unsigned char>(i));
+      keypoints_[i].angle *= (float)(180.0/CV_PI);
     }
   }
 
