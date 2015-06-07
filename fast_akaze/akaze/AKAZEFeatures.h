@@ -79,6 +79,7 @@ public:
   void Compute_Determinant_Hessian_Response_Single(const int level);
   void Compute_Multiscale_Derivatives(void);
   void Find_Scale_Space_Extrema(std::vector<std::vector<cv::KeyPoint>>& kpts_aux);
+  void Find_Scale_Space_Extrema_Single(std::vector<std::vector<cv::KeyPoint>>& kpts_aux);
   void Do_Subpixel_Refinement(std::vector<std::vector<cv::KeyPoint>>& kpts_aux, std::vector<cv::KeyPoint>& kpts);
 
   /// Feature description methods
