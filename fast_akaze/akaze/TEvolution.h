@@ -28,11 +28,15 @@ struct TEvolutionV2
   Mat Lt;               ///< Evolution image
   Mat Lsmooth;          ///< Smoothed image
   Mat Ldet;             ///< Detector response
+
+  Mat DxKx, DxKy;       ///< Derivative kernels (kx and ky) of xorder = 1
+  Mat DyKx, DyKy;       ///< Derivative kernels (kx and ky) of yorder = 1
+
   float etime;              ///< Evolution time
   float esigma;             ///< Evolution sigma. For linear diffusion t = sigma^2 / 2
   int octave;               ///< Image octave
   int sublevel;             ///< Image sublevel in each octave
-  int sigma_size;           ///< Integer esigma. For computing the feature detector responses
+  int sigma_size;           ///< Scaling factor of esigma that is round(esigma * derivative_factor / power)
 };
 
 }

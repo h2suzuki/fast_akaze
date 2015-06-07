@@ -28,11 +28,10 @@ void pm_g2V2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k);
 void weickert_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k);
 void charbonnier_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k);
 
-float compute_k_percentileV2(const cv::Mat& img, float perc, float gscale, int nbins, int ksize_x, int ksize_y);
+float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, std::vector<int>& hist);
 
 // Image derivatives
-void compute_scharr_derivativesV2(const cv::Mat& src, cv::Mat& dst, int xorder, int yorder, int scale);
-void compute_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _ky, int dx, int dy, int scale);
+void compute_scharr_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _ky, int dx, int dy, int scale);
 void image_derivatives_scharrV2(const cv::Mat& src, cv::Mat& dst, int xorder, int yorder);
 
 // Nonlinear diffusion filtering scalar step

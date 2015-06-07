@@ -103,10 +103,10 @@ int fed_tau_internalV2(const int& n, const float& scale, const float& tau_max,
   }
 
   // Allocate memory for the time step size
-  tau = vector<float>(n);
+  tau.resize(n);
 
   if (reordering) {
-    tauh = vector<float>(n);
+    tauh.resize(n);
   }
 
   // Compute time saver

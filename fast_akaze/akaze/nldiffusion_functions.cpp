@@ -26,6 +26,7 @@
 #include <opencv2/imgproc.hpp>
 
 #include "nldiffusion_functions.h"
+#include <algorithm>
 #include <iostream>
 
 // Namespaces
@@ -210,33 +211,22 @@ void charbonnier_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& ds
  * @param ksize_y Kernel size in Y-direction (vertical) for the Gaussian smoothing kernel
  * @return k contrast factor
  */
-float compute_k_percentileV2(const cv::Mat& img, float perc, float gscale, int nbins, int ksize_x, int ksize_y) {
+float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, std::vector<int>& hist) {
 
+    const int nbins = (int)hist.size();
     int nbin = 0, nelements = 0, nthreshold = 0, k = 0;
     float kperc = 0.0, modg = 0.0;
     float npoints = 0.0;
     float hmax = 0.0;
 
-    // Create the array for the histogram
-    std::vector<int> hist(nbins, 0);
-
-    // Create the matrices
-    Mat gaussian(img.rows, img.cols, CV_32FC1);
-    Mat Lx(img.rows, img.cols, CV_32FC1);
-    Mat Ly(img.rows, img.cols, CV_32FC1);
-
-    // Perform the Gaussian convolution
-    gaussian_2D_convolutionV2(img, gaussian, ksize_x, ksize_y, gscale);
-
-    // Compute the Gaussian derivatives Lx and Ly
-    Scharr(gaussian, Lx, CV_32F, 1, 0, 1, 0, cv::BORDER_DEFAULT);
-    Scharr(gaussian, Ly, CV_32F, 0, 1, 1, 0, cv::BORDER_DEFAULT);
+    // Clear the histogram by zero-fill
+    std::fill(std::begin(hist), std::end(hist), 0);
 
     // Skip the borders for computing the histogram
-    for (int i = 1; i < gaussian.rows - 1; i++) {
+    for (int i = 1; i < Lx.rows - 1; i++) {
         const float *lx = Lx.ptr<float>(i);
         const float *ly = Ly.ptr<float>(i);
-        for (int j = 1; j < gaussian.cols - 1; j++) {
+        for (int j = 1; j < Lx.cols - 1; j++) {
             modg = lx[j]*lx[j] + ly[j]*ly[j];
 
             // Get the maximum
@@ -247,10 +237,10 @@ float compute_k_percentileV2(const cv::Mat& img, float perc, float gscale, int n
     }
     hmax = sqrt(hmax);
     // Skip the borders for computing the histogram
-    for (int i = 1; i < gaussian.rows - 1; i++) {
+    for (int i = 1; i < Lx.rows - 1; i++) {
         const float *lx = Lx.ptr<float>(i);
         const float *ly = Ly.ptr<float>(i);
-        for (int j = 1; j < gaussian.cols - 1; j++) {
+        for (int j = 1; j < Lx.cols - 1; j++) {
             modg = lx[j]*lx[j] + ly[j]*ly[j];
 
             // Find the correspondent bin
@@ -284,31 +274,17 @@ float compute_k_percentileV2(const cv::Mat& img, float perc, float gscale, int n
     return kperc;
 }
 
-/* ************************************************************************* */
-/**
- * @brief This function computes Scharr image derivatives
- * @param src Input image
- * @param dst Output image
- * @param xorder Derivative order in X-direction (horizontal)
- * @param yorder Derivative order in Y-direction (vertical)
- * @param scale Scale factor for the derivative size
- */
-void compute_scharr_derivativesV2(const cv::Mat& src, cv::Mat& dst, int xorder, int yorder, int scale) {
-    Mat kx, ky;
-    compute_derivative_kernelsV2(kx, ky, xorder, yorder, scale);
-    sepFilter2D(src, dst, CV_32F, kx, ky);
-}
 
 /* ************************************************************************* */
 /**
- * @brief Compute derivative kernels for sizes different than 3
+ * @brief Compute Scharr derivative kernels for sizes different than 3
  * @param _kx Horizontal kernel ues
  * @param _ky Vertical kernel values
  * @param dx Derivative order in X-direction (horizontal)
  * @param dy Derivative order in Y-direction (vertical)
  * @param scale_ Scale factor or derivative size
  */
-void compute_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _ky, int dx, int dy, int scale) {
+void compute_scharr_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _ky, int dx, int dy, int scale) {
 
     int ksize = 3 + 2 * (scale - 1);
 

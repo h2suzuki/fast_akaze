@@ -11,6 +11,8 @@
 #include "nldiffusion_functions.h"
 #include "utils.h"
 
+#include <opencv2/imgproc.hpp>
+
 #include <iostream>
 
 // Taken from opencv2/internal.hpp: IEEE754 constants and macros
@@ -31,7 +33,6 @@ AKAZEFeaturesV2::AKAZEFeaturesV2(const AKAZEOptionsV2& options) : options_(optio
 
   cout << "AKAZEFeaturesV2 constructor called" << endl;
 
-  ncycles_ = 0;
   reordering_ = true;
 
   if (options_.descriptor_size > 0 && options_.descriptor >= AKAZE::DESCRIPTOR_MLDB_UPRIGHT) {
@@ -48,14 +49,12 @@ AKAZEFeaturesV2::AKAZEFeaturesV2(const AKAZEOptionsV2& options) : options_(optio
  */
 void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
 
-  float rfactor = 0.0f;
-  int level_height = 0, level_width = 0;
 
   // Allocate the dimension of the matrices for the evolution
   for (int i = 0, power = 1; i <= options_.omax - 1; i++, power *= 2) {
-    rfactor = 1.0f / power;
-    level_height = (int)(options_.img_height*rfactor);
-    level_width = (int)(options_.img_width*rfactor);
+    float rfactor = 1.0f / power;
+    int level_height = (int)(options_.img_height*rfactor);
+    int level_width = (int)(options_.img_width*rfactor);
 
     // Smallest possible octave and allow one scale if the image is small
     if ((level_width < 80 || level_height < 40) && i != 0) {
@@ -73,25 +72,31 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       step.Lxx.create(level_height, level_width, CV_32FC1);
       step.Lxy.create(level_height, level_width, CV_32FC1);
       step.Lyy.create(level_height, level_width, CV_32FC1);
-      step.esigma = options_.soffset*pow(2.f, (float)(j) / (float)(options_.nsublevels) + i);
-      step.sigma_size = fRoundV2(step.esigma);
+      step.esigma = options_.soffset*pow(2.f, (float)j / options_.nsublevels + i);
+      step.sigma_size = fRoundV2(step.esigma * options_.derivative_factor / power);  // In fact sigma_size only depends on j
       step.etime = 0.5f*(step.esigma*step.esigma);
       step.octave = i;
       step.sublevel = j;
+
+      // Pre-calculate the derivative kernels
+      compute_scharr_derivative_kernelsV2(step.DxKx, step.DxKy, 1, 0, step.sigma_size);
+      compute_scharr_derivative_kernelsV2(step.DyKx, step.DyKy, 0, 1, step.sigma_size);
+
       evolution_.push_back(step);
     }
   }
 
+  // Allocate memory for workspaces
+  lflow_.create(options_.img_height, options_.img_width, CV_32FC1);
+  lstep_.create(options_.img_height, options_.img_width, CV_32FC1);
+  histgram_.resize(options_.kcontrast_nbins);
+  kpts_aux_.reserve(evolution_.size() * 1024);  // reserve 1K points' space for each evolution step
+
   // Allocate memory for the number of cycles and time steps
+  tsteps_.resize(evolution_.size() - 1);
   for (size_t i = 1; i < evolution_.size(); i++) {
-    int naux = 0;
-    vector<float> tau;
-    float ttime = 0.0f;
-    ttime = evolution_[i].etime - evolution_[i - 1].etime;
-    naux = fed_tau_by_process_timeV2(ttime, 1, 0.25f, reordering_, tau);
-    nsteps_.push_back(naux);
-    tsteps_.push_back(tau);
-    ncycles_++;
+    fed_tau_by_process_timeV2(evolution_[i].etime - evolution_[i - 1].etime,
+                              1, 0.25f, reordering_, tsteps_[i - 1]);
   }
 }
 
@@ -105,17 +110,20 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
 {
   CV_Assert(evolution_.size() > 0);
 
+  // First compute the kcontrast factor
+  gaussian_2D_convolutionV2(img, evolution_[0].Lsmooth, 0, 0, 1.0f);
+  image_derivatives_scharrV2(evolution_[0].Lsmooth, evolution_[0].Lx, 1, 0);
+  image_derivatives_scharrV2(evolution_[0].Lsmooth, evolution_[0].Ly, 0, 1);
+  options_.kcontrast = compute_k_percentileV2(evolution_[0].Lx, evolution_[0].Ly, options_.kcontrast_percentile, histgram_);
+
   // Copy the original image to the first level of the evolution
   img.copyTo(evolution_[0].Lt);
   gaussian_2D_convolutionV2(evolution_[0].Lt, evolution_[0].Lt, 0, 0, options_.soffset);
   evolution_[0].Lt.copyTo(evolution_[0].Lsmooth);
 
-  // Allocate memory for the flow and step images
-  Mat Lflow(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1);
-  Mat Lstep(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1);
-
-  // First compute the kcontrast factor
-  options_.kcontrast = compute_k_percentileV2(img, options_.kcontrast_percentile, 1.0f, options_.kcontrast_nbins, 0, 0);
+  // Prepare the flow and step images
+  Mat Lflow(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lflow_.data);
+  Mat Lstep(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lstep_.data);
 
   // Now generate the rest of evolution levels
   for (size_t i = 1; i < evolution_.size(); i++) {
@@ -124,9 +132,9 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
       halfsample_imageV2(evolution_[i - 1].Lt, evolution_[i].Lt);
       options_.kcontrast = options_.kcontrast*0.75f;
 
-      // Allocate memory for the resized flow and step images
-      Lflow.create(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1);
-      Lstep.create(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1);
+      // Resize the flow and step images to fit Lt
+      Lflow = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, lflow_.data);
+      Lstep = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, lstep_.data);
     }
     else {
       evolution_[i - 1].Lt.copyTo(evolution_[i].Lt);
@@ -158,8 +166,9 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
     }
 
     // Perform FED n inner steps
-    for (int j = 0; j < nsteps_[i - 1]; j++) {
-      nld_step_scalarV2(evolution_[i].Lt, Lflow, Lstep, tsteps_[i - 1][j]);
+    std::vector<float> & tsteps = tsteps_[i - 1];
+    for (int j = 0; j < tsteps.size(); j++) {
+      nld_step_scalarV2(evolution_[i].Lt, Lflow, Lstep, tsteps[j]);
     }
   }
 
@@ -195,20 +204,17 @@ public:
 
     for (int i = range.start; i < range.end; i++)
     {
-        float ratio = (float)fastpowV2(2, evolution[i].octave);
-      int sigma_size_ = fRoundV2(evolution[i].esigma * options_.derivative_factor / ratio);
+      sepFilter2D(evolution[i].Lsmooth, evolution[i].Lx, CV_32F, evolution[i].DxKx, evolution[i].DxKy);
+      sepFilter2D(evolution[i].Lsmooth, evolution[i].Ly, CV_32F, evolution[i].DyKx, evolution[i].DyKy);
+      sepFilter2D(evolution[i].Lx, evolution[i].Lxx, CV_32F, evolution[i].DxKx, evolution[i].DxKy);
+      sepFilter2D(evolution[i].Ly, evolution[i].Lyy, CV_32F, evolution[i].DyKx, evolution[i].DyKy);
+      sepFilter2D(evolution[i].Lx, evolution[i].Lxy, CV_32F, evolution[i].DyKx, evolution[i].DyKy);
 
-      compute_scharr_derivativesV2(evolution[i].Lsmooth, evolution[i].Lx, 1, 0, sigma_size_);
-      compute_scharr_derivativesV2(evolution[i].Lsmooth, evolution[i].Ly, 0, 1, sigma_size_);
-      compute_scharr_derivativesV2(evolution[i].Lx, evolution[i].Lxx, 1, 0, sigma_size_);
-      compute_scharr_derivativesV2(evolution[i].Ly, evolution[i].Lyy, 0, 1, sigma_size_);
-      compute_scharr_derivativesV2(evolution[i].Lx, evolution[i].Lxy, 0, 1, sigma_size_);
-
-      evolution[i].Lx = evolution[i].Lx*((sigma_size_));
-      evolution[i].Ly = evolution[i].Ly*((sigma_size_));
-      evolution[i].Lxx = evolution[i].Lxx*((sigma_size_)*(sigma_size_));
-      evolution[i].Lxy = evolution[i].Lxy*((sigma_size_)*(sigma_size_));
-      evolution[i].Lyy = evolution[i].Lyy*((sigma_size_)*(sigma_size_));
+      evolution[i].Lx = evolution[i].Lx*(evolution[i].sigma_size);
+      evolution[i].Ly = evolution[i].Ly*(evolution[i].sigma_size);
+      evolution[i].Lxx = evolution[i].Lxx*(evolution[i].sigma_size * evolution[i].sigma_size);
+      evolution[i].Lxy = evolution[i].Lxy*(evolution[i].sigma_size * evolution[i].sigma_size);
+      evolution[i].Lyy = evolution[i].Lyy*(evolution[i].sigma_size * evolution[i].sigma_size);
     }
   }
 
@@ -266,7 +272,8 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
   int sigma_size_ = 0, left_x = 0, right_x = 0, up_y = 0, down_y = 0;
   bool is_extremum = false, is_repeated = false, is_out = false;
   KeyPoint point;
-  vector<KeyPoint> kpts_aux;
+
+  kpts_aux_.clear();
 
   // Set maximum size
   if (options_.descriptor == AKAZE::DESCRIPTOR_MLDB_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_MLDB) {
@@ -310,15 +317,15 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
           point.pt.y = static_cast<float>(ix);
 
           // Compare response with the same and lower scale
-          for (size_t ik = 0; ik < kpts_aux.size(); ik++) {
+          for (size_t ik = 0; ik < kpts_aux_.size(); ik++) {
 
-            if ((point.class_id - 1) == kpts_aux[ik].class_id ||
-                point.class_id == kpts_aux[ik].class_id) {
-              float distx = point.pt.x*ratio - kpts_aux[ik].pt.x;
-              float disty = point.pt.y*ratio - kpts_aux[ik].pt.y;
+            if ((point.class_id - 1) == kpts_aux_[ik].class_id ||
+                point.class_id == kpts_aux_[ik].class_id) {
+              float distx = point.pt.x*ratio - kpts_aux_[ik].pt.x;
+              float disty = point.pt.y*ratio - kpts_aux_[ik].pt.y;
               dist = distx * distx + disty * disty;
               if (dist <= point.size * point.size) {
-                if (point.response > kpts_aux[ik].response) {
+                if (point.response > kpts_aux_[ik].response) {
                   id_repeated = (int)ik;
                   is_repeated = true;
                 }
@@ -348,13 +355,13 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
               if (is_repeated == false) {
                 point.pt.x *= ratio;
                 point.pt.y *= ratio;
-                kpts_aux.push_back(point);
+                kpts_aux_.push_back(point);
                 npoints++;
               }
               else {
                 point.pt.x *= ratio;
                 point.pt.y *= ratio;
-                kpts_aux[id_repeated] = point;
+                kpts_aux_[id_repeated] = point;
               }
             } // if is_out
           } //if is_extremum
@@ -366,19 +373,19 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
   } // for i
 
   // Now filter points with the upper scale level
-  for (size_t i = 0; i < kpts_aux.size(); i++) {
+  for (size_t i = 0; i < kpts_aux_.size(); i++) {
 
     is_repeated = false;
-    const KeyPoint& pt = kpts_aux[i];
-    for (size_t j = i + 1; j < kpts_aux.size(); j++) {
+    const KeyPoint& pt = kpts_aux_[i];
+    for (size_t j = i + 1; j < kpts_aux_.size(); j++) {
 
       // Compare response with the upper scale
-      if ((pt.class_id + 1) == kpts_aux[j].class_id) {
-        float distx = pt.pt.x - kpts_aux[j].pt.x;
-        float disty = pt.pt.y - kpts_aux[j].pt.y;
+      if ((pt.class_id + 1) == kpts_aux_[j].class_id) {
+        float distx = pt.pt.x - kpts_aux_[j].pt.x;
+        float disty = pt.pt.y - kpts_aux_[j].pt.y;
         dist = distx * distx + disty * disty;
         if (dist <= pt.size * pt.size) {
-          if (pt.response < kpts_aux[j].response) {
+          if (pt.response < kpts_aux_[j].response) {
             is_repeated = true;
             break;
           }
@@ -1117,10 +1124,12 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
   const AKAZEOptionsV2 & options = *options_;
   const std::vector<TEvolutionV2>& evolution = *evolution_;
 
-  // Matrices for the M-LDB descriptor
-  Mat values_1(4, options.descriptor_channels, CV_32FC1);
-  Mat values_2(9, options.descriptor_channels, CV_32FC1);
-  Mat values_3(16, options.descriptor_channels, CV_32FC1);
+  CV_DbgAssert(options.descriptor_channels <= 3);
+
+  // Matrices for the M-LDB descriptor: the dimensions are [grid size] by [channel size]
+  float values_1[4][3];
+  float values_2[9][3];
+  float values_3[16][3];
 
   // Get the information from the keypoint
   ratio = (float)(1 << kpt.octave);
@@ -1163,9 +1172,9 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       dx /= nsamples;
       dy /= nsamples;
 
-      *(values_1.ptr<float>(dcount2)) = di;
-      *(values_1.ptr<float>(dcount2)+1) = dx;
-      *(values_1.ptr<float>(dcount2)+2) = dy;
+      values_1[dcount2][0] = di;
+      values_1[dcount2][1] = dx;
+      values_1[dcount2][2] = dy;
       dcount2++;
     }
   }
@@ -1173,7 +1182,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
   // Do binary comparison first level
   for (int i = 0; i < 4; i++) {
     for (int j = i + 1; j < 4; j++) {
-      if (*(values_1.ptr<float>(i)) > *(values_1.ptr<float>(j))) {
+      if (values_1[i][0] > values_1[j][0]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1181,7 +1190,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       }
       dcount1++;
 
-      if (*(values_1.ptr<float>(i)+1) > *(values_1.ptr<float>(j)+1)) {
+      if (values_1[i][1] > values_1[j][1]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1189,7 +1198,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       }
       dcount1++;
 
-      if (*(values_1.ptr<float>(i)+2) > *(values_1.ptr<float>(j)+2)) {
+      if (values_1[i][2] > values_1[j][2]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1233,9 +1242,9 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       dx /= nsamples;
       dy /= nsamples;
 
-      *(values_2.ptr<float>(dcount2)) = di;
-      *(values_2.ptr<float>(dcount2)+1) = dx;
-      *(values_2.ptr<float>(dcount2)+2) = dy;
+      values_2[dcount2][0] = di;
+      values_2[dcount2][1] = dx;
+      values_2[dcount2][2] = dy;
       dcount2++;
     }
   }
@@ -1244,7 +1253,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
   dcount2 = 0;
   for (int i = 0; i < 9; i++) {
     for (int j = i + 1; j < 9; j++) {
-      if (*(values_2.ptr<float>(i)) > *(values_2.ptr<float>(j))) {
+      if (values_2[i][0] > values_2[j][0]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1252,7 +1261,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       }
       dcount1++;
 
-      if (*(values_2.ptr<float>(i)+1) > *(values_2.ptr<float>(j)+1)) {
+      if (values_2[i][1] > values_2[j][1]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1260,7 +1269,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       }
       dcount1++;
 
-      if (*(values_2.ptr<float>(i)+2) > *(values_2.ptr<float>(j)+2)) {
+      if (values_2[i][2] > values_2[j][2]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1304,9 +1313,9 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       dx /= nsamples;
       dy /= nsamples;
 
-      *(values_3.ptr<float>(dcount2)) = di;
-      *(values_3.ptr<float>(dcount2)+1) = dx;
-      *(values_3.ptr<float>(dcount2)+2) = dy;
+      values_3[dcount2][0] = di;
+      values_3[dcount2][1] = dx;
+      values_3[dcount2][2] = dy;
       dcount2++;
     }
   }
@@ -1315,7 +1324,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
   dcount2 = 0;
   for (int i = 0; i < 16; i++) {
     for (int j = i + 1; j < 16; j++) {
-      if (*(values_3.ptr<float>(i)) > *(values_3.ptr<float>(j))) {
+      if (values_3[i][0] > values_3[j][0]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1323,7 +1332,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       }
       dcount1++;
 
-      if (*(values_3.ptr<float>(i)+1) > *(values_3.ptr<float>(j)+1)) {
+      if (values_3[i][1] > values_3[j][1]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1331,7 +1340,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
       }
       dcount1++;
 
-      if (*(values_3.ptr<float>(i)+2) > *(values_3.ptr<float>(j)+2)) {
+      if (values_3[i][2] > values_3[j][2]) {
         desc[dcount1 / 8] |= (1 << (dcount1 % 8));
       }
       else {
@@ -1484,17 +1493,20 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
   float si = sin(angle);
 
   // Allocate memory for the matrix of values
-  Mat values((4 + 9 + 16)*options.descriptor_channels, 1, CV_32FC1);
+  CV_DbgAssert(options.descriptor_channels <= 3);
+  float values[(4 + 9 + 16)*3];
 
   // Sample everything, but only do the comparisons
-  vector<int> steps(3);
-  steps.at(0) = options.descriptor_pattern_size;
-  steps.at(1) = (int)ceil(2.f*options.descriptor_pattern_size / 3.f);
-  steps.at(2) = options.descriptor_pattern_size / 2;
+  const int steps[3] = { options.descriptor_pattern_size,
+                         (int)ceil(2.f*options.descriptor_pattern_size / 3.f),
+                         options.descriptor_pattern_size / 2 };
 
   for (int i = 0; i < descriptorSamples_.rows; i++) {
     const int *coords = descriptorSamples_.ptr<int>(i);
-    int sample_step = steps.at(coords[0]);
+
+    CV_DbgAssert(0 <= coords[0] && coords[0] < 3);
+    int sample_step = steps[coords[0]];
+
     di = 0.0f;
     dx = 0.0f;
     dy = 0.0f;
@@ -1527,23 +1539,22 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
       }
     }
 
-    *(values.ptr<float>(options.descriptor_channels*i)) = di;
+    values[i * options.descriptor_channels] = di;
 
     if (options.descriptor_channels == 2) {
-      *(values.ptr<float>(options.descriptor_channels*i + 1)) = dx;
+      values[i * options.descriptor_channels + 1] = dx;
     }
     else if (options.descriptor_channels == 3) {
-      *(values.ptr<float>(options.descriptor_channels*i + 1)) = dx;
-      *(values.ptr<float>(options.descriptor_channels*i + 2)) = dy;
+      values[i * options.descriptor_channels + 1] = dx;
+      values[i * options.descriptor_channels + 2] = dy;
     }
   }
 
   // Do the comparisons
-  const float *vals = values.ptr<float>(0);
   const int *comps = descriptorBits_.ptr<int>(0);
 
   for (int i = 0; i<descriptorBits_.rows; i++) {
-    if (vals[comps[2 * i]] > vals[comps[2 * i + 1]]) {
+    if (values[comps[2 * i]] > values[comps[2 * i + 1]]) {
       desc[i / 8] |= (1 << (i % 8));
     }
     else {
@@ -1578,16 +1589,18 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
   float xf = kpt.pt.x / ratio;
 
   // Allocate memory for the matrix of values
-  Mat values((4 + 9 + 16)*options.descriptor_channels, 1, CV_32FC1);
+  CV_DbgAssert(options.descriptor_channels <= 3);
+  float values[(4 + 9 + 16)*3];
 
-  vector<int> steps(3);
-  steps.at(0) = options.descriptor_pattern_size;
-  steps.at(1) = static_cast<int>(ceil(2.f*options.descriptor_pattern_size / 3.f));
-  steps.at(2) = options.descriptor_pattern_size / 2;
+  int steps[3] = { options.descriptor_pattern_size,
+                   static_cast<int>(ceil(2.f*options.descriptor_pattern_size / 3.f)),
+                   options.descriptor_pattern_size / 2 };
 
   for (int i = 0; i < descriptorSamples_.rows; i++) {
     const int *coords = descriptorSamples_.ptr<int>(i);
-    int sample_step = steps.at(coords[0]);
+    CV_DbgAssert(0 <= coords[0] && coords[0] < 3);
+
+    int sample_step = steps[coords[0]];
     di = 0.0f, dx = 0.0f, dy = 0.0f;
 
     for (int k = coords[1]; k < coords[1] + sample_step; k++) {
@@ -1616,23 +1629,22 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
       }
     }
 
-    *(values.ptr<float>(options.descriptor_channels*i)) = di;
+    values[i * options.descriptor_channels] = di;
 
     if (options.descriptor_channels == 2) {
-      *(values.ptr<float>(options.descriptor_channels*i + 1)) = dx;
+      values[i * options.descriptor_channels + 1] = dx;
     }
     else if (options.descriptor_channels == 3) {
-      *(values.ptr<float>(options.descriptor_channels*i + 1)) = dx;
-      *(values.ptr<float>(options.descriptor_channels*i + 2)) = dy;
+      values[i * options.descriptor_channels + 1] = dx;
+      values[i * options.descriptor_channels + 2] = dy;
     }
   }
 
   // Do the comparisons
-  const float *vals = values.ptr<float>(0);
   const int *comps = descriptorBits_.ptr<int>(0);
 
   for (int i = 0; i<descriptorBits_.rows; i++) {
-    if (vals[comps[2 * i]] > vals[comps[2 * i + 1]]) {
+    if (values[comps[2 * i]] > values[comps[2 * i + 1]]) {
       desc[i / 8] |= (1 << (i % 8));
     }
     else {
@@ -1658,12 +1670,18 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
 void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
                                  int pattern_size, int nchannels) {
 
-  int ssz = 0;
+#if 0
+  // Replaced by an immediate to use stack; need C++11 constexpr to use the logic
+  int fullM_rows = 0;
   for (int i = 0; i < 3; i++) {
     int gz = (i + 2)*(i + 2);
-    ssz += gz*(gz - 1) / 2;
+    fullM_rows += gz*(gz - 1) / 2;
   }
-  ssz *= nchannels;
+#else
+  const int fullM_rows = 162;
+#endif
+
+  int ssz = fullM_rows * nchannels; // ssz is 486 when nchannels is 3
 
   CV_Assert(nbits <= ssz); // Descriptor size can't be bigger than full descriptor
 
@@ -1672,7 +1690,9 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
   // pick as the number of channels. For every pick, we
   // take the two samples involved and put them in the sampling list
 
-  Mat_<int> fullM(ssz / nchannels, 5);
+  int fullM_stack[fullM_rows * 5]; // About 6.3KB workspace with 64-bit int on stack
+  Mat_<int> fullM(fullM_rows, 5, fullM_stack);
+
   for (int i = 0, c = 0; i < 3; i++) {
     int gdiv = i + 2; //grid divisions, per row
     int gsz = gdiv*gdiv;
@@ -1689,19 +1709,21 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
     }
   }
 
-  srand(1024);
-  Mat_<int> comps = Mat_<int>(nchannels * (int)ceil(nbits / (float)nchannels), 2);
+  int comps_stack[486 * 2]; // About 7.6KB workspace with 64-bit int on stack
+  Mat_<int> comps(nchannels * (int)ceil(nbits / (float)nchannels), 2, comps_stack);
   comps = 1000;
+
+  int samples_stack[(4 + 9 + 16) * 3]; // 696 bytes workspace with 64-bit int on stack
+  Mat_<int> samples((4 + 9 + 16), 3, samples_stack);
 
   // Select some samples. A sample includes all channels
   int count = 0;
   int npicks = (int)ceil(nbits / (float)nchannels);
-  Mat_<int> samples(29, 3);
-  Mat_<int> fullcopy = fullM.clone();
   samples = -1;
 
+  srand(1024);
   for (int i = 0; i < npicks; i++) {
-    int k = rand() % (fullM.rows - i);
+    int k = rand() % (fullM_rows - i);
     if (i < 6) {
       // Force use of the coarser grid values and comparisons
       k = i;
@@ -1710,7 +1732,7 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
     bool n = true;
 
     for (int j = 0; j < count; j++) {
-      if (samples(j, 0) == fullcopy(k, 0) && samples(j, 1) == fullcopy(k, 1) && samples(j, 2) == fullcopy(k, 2)) {
+      if (samples(j, 0) == fullM(k, 0) && samples(j, 1) == fullM(k, 1) && samples(j, 2) == fullM(k, 2)) {
         n = false;
         comps(i*nchannels, 0) = nchannels*j;
         comps(i*nchannels + 1, 0) = nchannels*j + 1;
@@ -1720,9 +1742,9 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
     }
 
     if (n) {
-      samples(count, 0) = fullcopy(k, 0);
-      samples(count, 1) = fullcopy(k, 1);
-      samples(count, 2) = fullcopy(k, 2);
+      samples(count, 0) = fullM(k, 0);
+      samples(count, 1) = fullM(k, 1);
+      samples(count, 2) = fullM(k, 2);
       comps(i*nchannels, 0) = nchannels*count;
       comps(i*nchannels + 1, 0) = nchannels*count + 1;
       comps(i*nchannels + 2, 0) = nchannels*count + 2;
@@ -1731,7 +1753,7 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
 
     n = true;
     for (int j = 0; j < count; j++) {
-      if (samples(j, 0) == fullcopy(k, 0) && samples(j, 1) == fullcopy(k, 3) && samples(j, 2) == fullcopy(k, 4)) {
+      if (samples(j, 0) == fullM(k, 0) && samples(j, 1) == fullM(k, 3) && samples(j, 2) == fullM(k, 4)) {
         n = false;
         comps(i*nchannels, 1) = nchannels*j;
         comps(i*nchannels + 1, 1) = nchannels*j + 1;
@@ -1741,17 +1763,16 @@ void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
     }
 
     if (n) {
-      samples(count, 0) = fullcopy(k, 0);
-      samples(count, 1) = fullcopy(k, 3);
-      samples(count, 2) = fullcopy(k, 4);
+      samples(count, 0) = fullM(k, 0);
+      samples(count, 1) = fullM(k, 3);
+      samples(count, 2) = fullM(k, 4);
       comps(i*nchannels, 1) = nchannels*count;
       comps(i*nchannels + 1, 1) = nchannels*count + 1;
       comps(i*nchannels + 2, 1) = nchannels*count + 2;
       count++;
     }
 
-    Mat tmp = fullcopy.row(k);
-    fullcopy.row(fullcopy.rows - i - 1).copyTo(tmp);
+    fullM.row(fullM.rows - i - 1).copyTo(fullM.row(k));
   }
 
   sampleList = samples.rowRange(0, count).clone();

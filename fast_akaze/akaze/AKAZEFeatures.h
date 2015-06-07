@@ -31,15 +31,18 @@ private:
   std::vector<TEvolutionV2> evolution_;        ///< Vector of nonlinear diffusion evolution
 
   /// FED parameters
-  int ncycles_;                  ///< Number of cycles
   bool reordering_;              ///< Flag for reordering time steps
-  std::vector<std::vector<float > > tsteps_;  ///< Vector of FED dynamic time steps
-  std::vector<int> nsteps_;      ///< Vector of number of steps per cycle
+  std::vector<std::vector<float> > tsteps_;  ///< Vector of FED dynamic time steps
 
   /// Matrices for the M-LDB descriptor computation
   cv::Mat descriptorSamples_;  // List of positions in the grids to sample LDB bits from.
   cv::Mat descriptorBits_;
   cv::Mat bitMask_;
+
+  /// Preallocated temporary variables
+  cv::Mat lflow_, lstep_;
+  std::vector<int> histgram_;
+  std::vector<cv::KeyPoint> kpts_aux_;
 
 public:
 
