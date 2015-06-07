@@ -28,7 +28,7 @@ void pm_g2V2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k);
 void weickert_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k);
 void charbonnier_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k);
 
-float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, std::vector<int>& hist);
+float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, std::vector<float>& modgs, std::vector<int>& hist);
 
 // Image derivatives
 void compute_scharr_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _ky, int dx, int dy, int scale);

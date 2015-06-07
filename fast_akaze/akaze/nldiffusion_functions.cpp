@@ -200,77 +200,71 @@ void charbonnier_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& ds
 /* ************************************************************************* */
 /**
  * @brief This function computes a good empirical value for the k contrast factor
- * given an input image, the percentile (0-1), the gradient scale and the number of
- * bins in the histogram
- * @param img Input image
+ * given two gradient images, the percentile (0-1), the temporal storage to hold
+ * gradient norms and the histogram bins
+ * @param Lx Horizontal gradient of the input image
+ * @param Ly Vertical gradient of the input image
  * @param perc Percentile of the image gradient histogram (0-1)
- * @param gscale Scale for computing the image gradient histogram
- * @param nbins Number of histogram bins
- * @param ksize_x Kernel size in X-direction (horizontal) for the Gaussian smoothing kernel
- * @param ksize_y Kernel size in Y-direction (vertical) for the Gaussian smoothing kernel
+ * @param modgs Temporal vector to hold the gradient norms
+ * @param hist Temporal vector to hold the gradient histogram
  * @return k contrast factor
  */
-float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, std::vector<int>& hist) {
+float compute_k_percentileV2(const cv::Mat& Lx, const cv::Mat& Ly, float perc, std::vector<float>& modgs, std::vector<int>& hist) {
 
     const int nbins = (int)hist.size();
-    int nbin = 0, nelements = 0, nthreshold = 0, k = 0;
-    float kperc = 0.0, modg = 0.0;
-    float npoints = 0.0;
-    float hmax = 0.0;
+    const int total = (int)modgs.size();
 
-    // Clear the histogram by zero-fill
-    std::fill(std::begin(hist), std::end(hist), 0);
+    CV_DbgAssert(total == (Lx.rows - 2)*(Lx.cols - 2));
+    CV_DbgAssert(nbins > 2);
 
-    // Skip the borders for computing the histogram
+    float *p = &modgs[0];
     for (int i = 1; i < Lx.rows - 1; i++) {
-        const float *lx = Lx.ptr<float>(i);
-        const float *ly = Ly.ptr<float>(i);
-        for (int j = 1; j < Lx.cols - 1; j++) {
-            modg = lx[j]*lx[j] + ly[j]*ly[j];
+        const float *lx = Lx.ptr<float>(i) + 1;
+        const float *ly = Ly.ptr<float>(i) + 1;
+        const int cols = Lx.cols - 2;
 
-            // Get the maximum
-            if (modg > hmax) {
-                hmax = modg;
-            }
-        }
+        for (int j = 0; j < cols; j++)
+            *p++ = lx[j] * lx[j] + ly[j] * ly[j];
     }
-    hmax = sqrt(hmax);
-    // Skip the borders for computing the histogram
-    for (int i = 1; i < Lx.rows - 1; i++) {
-        const float *lx = Lx.ptr<float>(i);
-        const float *ly = Ly.ptr<float>(i);
-        for (int j = 1; j < Lx.cols - 1; j++) {
-            modg = lx[j]*lx[j] + ly[j]*ly[j];
 
-            // Find the correspondent bin
-            if (modg != 0.0) {
-                nbin = (int)floor(nbins*(sqrt(modg) / hmax));
+    // Get the maximum
+    float hmax = 0.0f;
+    for (int i = 0; i < total; i++)
+        if (hmax < modgs[i])
+            hmax = modgs[i];
 
-                if (nbin == nbins) {
-                    nbin--;
-                }
+    if (hmax == 0.0f)
+        return 0.03f;  // e.g. a blank image
 
-                hist[nbin]++;
-                npoints++;
-            }
-        }
-    }
+    // Eliminate the values that fall to hist[0] in order to reduce later sqrtf() by 10% or so
+    const float lower_bound = hmax / (nbins * nbins);
+    auto e = std::remove_if(std::begin(modgs), std::end(modgs),
+                            [lower_bound](float x){ return x < lower_bound; });
+    auto npoints = e - std::begin(modgs);
+
+    // Compute the histogram bin number
+    p = &modgs[0];
+    for (int i = 0; i < npoints; i++)
+        p[i] = nbins * sqrtf(p[i] / hmax);  // range [1, nbins]
+
+    // Count up
+    hist.assign(nbins, 0);
+    for (int i = 0; i < npoints; i++)
+        hist[(int)modgs[i] % nbins]++;  // range [0, nbins-1]
+    hist[nbins - 1] += hist[0];
+    hist[0] = 0;
 
     // Now find the perc of the histogram percentile
-    nthreshold = (int)(npoints*perc);
+    int nthreshold = (int)(npoints * perc);
+    int nelements = 0;
+    for (int k = 1; k < nbins; k++) {
+        if (nelements >= nthreshold)
+            return sqrtf(hmax) * k / nbins;
 
-    for (k = 0; nelements < nthreshold && k < nbins; k++) {
         nelements = nelements + hist[k];
     }
 
-    if (nelements < nthreshold)  {
-        kperc = 0.03f;
-    }
-    else {
-        kperc = hmax*((float)(k) / (float)nbins);
-    }
-
-    return kperc;
+    return 0.03f;
 }
 
 

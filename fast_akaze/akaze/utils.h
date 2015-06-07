@@ -1,6 +1,9 @@
 #ifndef __OPENCV_FEATURES_2D_KAZE_UTILS_H__
 #define __OPENCV_FEATURES_2D_KAZE_UTILS_H__
 
+#include <opencv2/core/cvdef.h>
+#include <cmath>
+
 /* ************************************************************************* */
 /**
  * @brief This function computes the angle from the vector given by (X Y). From 0 to 2*Pi
@@ -72,26 +75,6 @@ inline void checkDescriptorLimitsV2(int &x, int &y, int width, int height) {
  */
 inline int fRoundV2(float flt) {
   return (int)(flt + 0.5f);
-}
-
-/* ************************************************************************* */
-/**
- * @brief Exponentiation by squaring
- * @param flt Exponentiation base
- * @return dst Exponentiation value
- */
-inline int fastpowV2(int base, int exp) {
-    int res = 1;
-    while(exp > 0) {
-        if(exp & 1) {
-            exp--;
-            res *= base;
-        } else {
-            exp /= 2;
-            base *= base;
-        }
-    }
-    return res;
 }
 
 #endif

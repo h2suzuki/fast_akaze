@@ -49,18 +49,14 @@ AKAZEFeaturesV2::AKAZEFeaturesV2(const AKAZEOptionsV2& options) : options_(optio
  */
 void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
 
+  CV_Assert(options_.img_height > 2 && options_.img_width > 2);  // The size of modgs_ must be positive
 
   // Allocate the dimension of the matrices for the evolution
-  for (int i = 0, power = 1; i <= options_.omax - 1; i++, power *= 2) {
-    float rfactor = 1.0f / power;
-    int level_height = (int)(options_.img_height*rfactor);
-    int level_width = (int)(options_.img_width*rfactor);
+  int level_height = options_.img_height;
+  int level_width = options_.img_width;
+  int power = 1;
 
-    // Smallest possible octave and allow one scale if the image is small
-    if ((level_width < 80 || level_height < 40) && i != 0) {
-      options_.omax = i;
-      break;
-    }
+  for (int i = 0; i < options_.omax; i++) {
 
     for (int j = 0; j < options_.nsublevels; j++) {
       TEvolutionV2 step;
@@ -77,6 +73,7 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       step.etime = 0.5f*(step.esigma*step.esigma);
       step.octave = i;
       step.sublevel = j;
+      step.octave_ratio = (float)power;
 
       // Pre-calculate the derivative kernels
       compute_scharr_derivative_kernelsV2(step.DxKx, step.DxKy, 1, 0, step.sigma_size);
@@ -84,12 +81,23 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
 
       evolution_.push_back(step);
     }
+
+    power <<= 1;
+    level_height >>= 1;
+    level_width >>= 1;
+
+    // The next octave becomes too small
+    if (level_width < 80 || level_height < 40) {
+      options_.omax = i + 1;
+      break;
+    }
   }
 
   // Allocate memory for workspaces
   lflow_.create(options_.img_height, options_.img_width, CV_32FC1);
   lstep_.create(options_.img_height, options_.img_width, CV_32FC1);
   histgram_.resize(options_.kcontrast_nbins);
+  modgs_.resize((options_.img_height - 2) * (options_.img_width - 2));  // excluding the border
   kpts_aux_.reserve(evolution_.size() * 1024);  // reserve 1K points' space for each evolution step
 
   // Allocate memory for the number of cycles and time steps
@@ -133,7 +141,7 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
   gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, 1.0f);
   image_derivatives_scharrV2(evolution_[0].Lsmooth, evolution_[0].Lx, 1, 0);
   image_derivatives_scharrV2(evolution_[0].Lsmooth, evolution_[0].Ly, 0, 1);
-  options_.kcontrast = compute_k_percentileV2(evolution_[0].Lx, evolution_[0].Ly, options_.kcontrast_percentile, histgram_);
+  float kcontrast = compute_k_percentileV2(evolution_[0].Lx, evolution_[0].Ly, options_.kcontrast_percentile, modgs_, histgram_);
 
   // Copy the original image to the first level of the evolution
   gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, options_.soffset);
@@ -148,7 +156,7 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
 
     if (evolution_[i].octave > evolution_[i - 1].octave) {
       halfsample_imageV2(evolution_[i - 1].Lt, evolution_[i].Lt);
-      options_.kcontrast = options_.kcontrast*0.75f;
+      kcontrast = kcontrast*0.75f;
 
       // Resize the flow and step images to fit Lt
       Lflow = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, lflow_.data);
@@ -166,16 +174,16 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
     // Compute the conductivity equation
     switch (options_.diffusivity) {
       case KAZE::DIFF_PM_G1:
-        pm_g1V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
+        pm_g1V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
       break;
       case KAZE::DIFF_PM_G2:
-        pm_g2V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
+        pm_g2V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
       break;
       case KAZE::DIFF_WEICKERT:
-        weickert_diffusivityV2(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
+        weickert_diffusivityV2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
       break;
       case KAZE::DIFF_CHARBONNIER:
-        charbonnier_diffusivityV2(evolution_[i].Lx, evolution_[i].Ly, Lflow, options_.kcontrast);
+        charbonnier_diffusivityV2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
       break;
       default:
         CV_Error(options_.diffusivity, "Diffusivity is not supported");
@@ -336,7 +344,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
           point.size = evolution_[i].esigma*options_.derivative_factor;
           point.octave = (int)evolution_[i].octave;
           point.class_id = (int)i;
-          ratio = (float)fastpowV2(2, point.octave);
+          ratio = evolution_[i].octave_ratio;
           sigma_size_ = fRoundV2(point.size / ratio);
           point.pt.x = static_cast<float>(jx);
           point.pt.y = static_cast<float>(ix);
@@ -438,7 +446,7 @@ void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
   Vec2f dst(0, 0);
 
   for (size_t i = 0; i < kpts.size(); i++) {
-    ratio = (float)fastpowV2(2, kpts[i].octave);
+    ratio = evolution_[kpts[i].class_id].octave_ratio;
     x = fRoundV2(kpts[i].pt.x / ratio);
     y = fRoundV2(kpts[i].pt.y / ratio);
 
@@ -474,9 +482,8 @@ void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
     if (fabs(dst(0)) <= 1.0f && fabs(dst(1)) <= 1.0f) {
         kpts[i].pt.x = x + dst(0);
       kpts[i].pt.y = y + dst(1);
-      int power = fastpowV2(2, evolution_[kpts[i].class_id].octave);
-      kpts[i].pt.x *= power;
-      kpts[i].pt.y *= power;
+      kpts[i].pt.x *= evolution_[kpts[i].class_id].octave_ratio;
+      kpts[i].pt.y *= evolution_[kpts[i].class_id].octave_ratio;
       kpts[i].angle = 0.0;
 
       // In OpenCV the size of a keypoint its the diameter
@@ -829,7 +836,7 @@ void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<
 
   // Get the information from the keypoint
   level = kpt.class_id;
-  ratio = (float)(1 << evolution_[level].octave);
+  ratio = evolution_[level].octave_ratio;
   s = fRoundV2(0.5f*kpt.size / ratio);
   xf = kpt.pt.x / ratio;
   yf = kpt.pt.y / ratio;
@@ -912,9 +919,9 @@ void MSURF_Upright_Descriptor_64_InvokerV2::Get_MSURF_Upright_Descriptor_64(cons
   pattern_size = 12;
 
   // Get the information from the keypoint
-  ratio = (float)(1 << kpt.octave);
-  scale = fRoundV2(0.5f*kpt.size / ratio);
   level = kpt.class_id;
+  ratio = evolution[level].octave_ratio;
+  scale = fRoundV2(0.5f*kpt.size / ratio);
   yf = kpt.pt.y / ratio;
   xf = kpt.pt.x / ratio;
 
@@ -1035,10 +1042,10 @@ void MSURF_Descriptor_64_InvokerV2::Get_MSURF_Descriptor_64(const KeyPoint& kpt,
   pattern_size = 12;
 
   // Get the information from the keypoint
-  ratio = (float)(1 << kpt.octave);
+  level = kpt.class_id;
+  ratio = evolution[level].octave_ratio;
   scale = fRoundV2(0.5f*kpt.size / ratio);
   angle = kpt.angle;
-  level = kpt.class_id;
   yf = kpt.pt.y / ratio;
   xf = kpt.pt.x / ratio;
   co = cos(angle);
@@ -1158,9 +1165,9 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
   float values_3[16][3];
 
   // Get the information from the keypoint
-  ratio = (float)(1 << kpt.octave);
-  scale = fRoundV2(0.5f*kpt.size / ratio);
   level = kpt.class_id;
+  ratio = evolution[level].octave_ratio;
+  scale = fRoundV2(0.5f*kpt.size / ratio);
   yf = kpt.pt.y / ratio;
   xf = kpt.pt.x / ratio;
 
@@ -1472,7 +1479,7 @@ void MLDB_Full_Descriptor_InvokerV2::Get_MLDB_Full_Descriptor(const KeyPoint& kp
   float values[16*max_channels];
   const double size_mult[3] = {1, 2.0/3.0, 1.0/2.0};
 
-  float ratio = (float)(1 << kpt.octave);
+  float ratio = (*evolution_)[kpt.class_id].octave_ratio;
   float scale = (float)fRoundV2(0.5f*kpt.size / ratio);
   float xf = kpt.pt.x / ratio;
   float yf = kpt.pt.y / ratio;
@@ -1509,7 +1516,7 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
   const std::vector<TEvolutionV2>& evolution = *evolution_;
 
   // Get the information from the keypoint
-  float ratio = (float)(1 << kpt.octave);
+  float ratio = evolution[kpt.class_id].octave_ratio;
   int scale = fRoundV2(0.5f*kpt.size / ratio);
   float angle = kpt.angle;
   int level = kpt.class_id;
@@ -1608,7 +1615,7 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
   const std::vector<TEvolutionV2>& evolution = *evolution_;
 
   // Get the information from the keypoint
-  float ratio = (float)(1 << kpt.octave);
+  float ratio = evolution[kpt.class_id].octave_ratio;
   int scale = fRoundV2(0.5f*kpt.size / ratio);
   int level = kpt.class_id;
   float yf = kpt.pt.y / ratio;

@@ -21,6 +21,7 @@ struct TEvolutionV2
     octave = 0;
     sublevel = 0;
     sigma_size = 0;
+    octave_ratio = 1.0f;
   }
 
   Mat Lx, Ly;           ///< First order spatial derivatives
@@ -37,6 +38,7 @@ struct TEvolutionV2
   int octave;               ///< Image octave
   int sublevel;             ///< Image sublevel in each octave
   int sigma_size;           ///< Scaling factor of esigma that is round(esigma * derivative_factor / power)
+  float octave_ratio;       ///< Scaling ratio of this octave. ratio = 2^octave
 };
 
 }

@@ -34,7 +34,6 @@ struct AKAZEOptionsV2 {
         , descriptor_channels(3)
         , descriptor_pattern_size(10)
 
-        , kcontrast(0.001f)
         , kcontrast_percentile(0.7f)
         , kcontrast_nbins(300)
     {
@@ -57,7 +56,6 @@ struct AKAZEOptionsV2 {
     int descriptor_channels;        ///< Number of channels in the descriptor (1, 2, 3)
     int descriptor_pattern_size;    ///< Actual patch size is 2*pattern_size*point.scale
 
-    float kcontrast;                ///< The contrast factor parameter
     float kcontrast_percentile;     ///< Percentile level for the contrast factor
     int kcontrast_nbins;            ///< Number of bins for the contrast factor histogram
 };
