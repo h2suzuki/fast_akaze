@@ -219,10 +219,9 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
  */
 void AKAZEFeaturesV2::Feature_Detection(std::vector<KeyPoint>& kpts)
 {
-  kpts.clear();
   Compute_Determinant_Hessian_Response();
-  Find_Scale_Space_Extrema(kpts);
-  Do_Subpixel_Refinement(kpts);
+  Find_Scale_Space_Extrema(kpts_aux_);
+  Do_Subpixel_Refinement(kpts_aux_, kpts);
 }
 
 /* ************************************************************************* */
@@ -328,9 +327,9 @@ bool find_neighbor_point(const KeyPoint &p, const vector<KeyPoint> &v, const int
 /* ************************************************************************* */
 /**
  * @brief This method finds extrema in the nonlinear scale space
- * @param kpts Vector of detected keypoints
+ * @param kpts_aux Output vectors of detected keypoints; one vector for each evolution level
  */
-void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
+void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kpts_aux)
 {
   // Clear the workspace to hold the detected keypoint candidates
   for (size_t i = 0; i < kpts_aux_.size(); i++)
@@ -381,23 +380,22 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
         int idx = 0;
 
         // Compare response with the same scale
-        if (find_neighbor_point(point, kpts_aux_[i], 0, idx)) {
-          if (point.response > kpts_aux_[i][idx].response)
-            kpts_aux_[i][idx] = point;  // Replace the old point
+        if (find_neighbor_point(point, kpts_aux[i], 0, idx)) {
+          if (point.response > kpts_aux[i][idx].response)
+            kpts_aux[i][idx] = point;  // Replace the old point
           continue;
         }
 
         // Compare response with the lower scale
-        if (i > 0 && find_neighbor_point(point, kpts_aux_[i - 1], 0, idx)) {
-          if (point.response > kpts_aux_[i - 1][idx].response) {
-            kpts_aux_[i - 1][idx].class_id = -1;  // Mark it as deleted
-            kpts_aux_[i].push_back(point);  // Insert the new point to the right layer
+        if (i > 0 && find_neighbor_point(point, kpts_aux[i - 1], 0, idx)) {
+          if (point.response > kpts_aux[i - 1][idx].response) {
+            kpts_aux[i - 1][idx].class_id = -1;  // Mark it as deleted
+            kpts_aux[i].push_back(point);  // Insert the new point to the right layer
           }
           continue;
         }
 
-        kpts_aux_[i].push_back(point);  // A good keypoint candidate is found
-
+        kpts_aux[i].push_back(point);  // A good keypoint candidate is found
       }
       prev = curr;
       curr = next;
@@ -406,21 +404,19 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
   }
 
   // Now filter points with the upper scale level
-  for (int i = 0; i < (int)kpts_aux_.size() - 1; i++) {
-    for (int j = 0; j < (int)kpts_aux_[i].size(); j++) {
+  for (int i = 0; i < (int)kpts_aux.size() - 1; i++) {
+    for (int j = 0; j < (int)kpts_aux[i].size(); j++) {
 
-      const KeyPoint& pt = kpts_aux_[i][j];
+      KeyPoint& pt = kpts_aux[i][j];
 
       if (pt.class_id == -1) // Skip a deleted point
           continue;
 
       int idx = 0;
-      if (find_neighbor_point(pt, kpts_aux_[i + 1], j + 1, idx)) {
-        if (pt.response < kpts_aux_[i + 1][idx].response)
-          continue;
+      if (find_neighbor_point(pt, kpts_aux[i + 1], j + 1, idx)) {
+        if (pt.response < kpts_aux[i + 1][idx].response)
+          pt.class_id = -1; // Non-extremum; mark this point deleted
       }
-
-      kpts.push_back(pt);
     }
   }
 }
@@ -428,65 +424,61 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 /* ************************************************************************* */
 /**
  * @brief This method performs subpixel refinement of the detected keypoints
- * @param kpts Vector of detected keypoints
+ * @param kpts_aux Input vectors of detected keypoints, sorted by evolution levels
+ * @param kpts Output vector of the final refined keypoints
  */
-void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<KeyPoint>& kpts)
+void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<std::vector<KeyPoint>>& kpts_aux, std::vector<KeyPoint>& kpts)
 {
-  float Dx = 0.0, Dy = 0.0, ratio = 0.0;
-  float Dxx = 0.0, Dyy = 0.0, Dxy = 0.0;
-  int x = 0, y = 0;
-  Matx22f A(0, 0, 0, 0);
-  Vec2f b(0, 0);
-  Vec2f dst(0, 0);
+  // Clear the keypoint vector
+  kpts.clear();
 
-  for (size_t i = 0; i < kpts.size(); i++) {
-    ratio = evolution_[kpts[i].class_id].octave_ratio;
-    x = fRoundV2(kpts[i].pt.x / ratio);
-    y = fRoundV2(kpts[i].pt.y / ratio);
+  for (int i = 0; i < (int)kpts_aux.size(); i++) {
+    const float * const ldet = evolution_[i].Ldet.ptr<float>(0);
+    const float ratio = evolution_[i].octave_ratio;
+    const int cols = evolution_[i].Ldet.cols;
 
-    // Compute the gradient
-    Dx = (0.5f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x + 1)
-        - *(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x - 1));
-    Dy = (0.5f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x)
-        - *(evolution_[kpts[i].class_id].Ldet.ptr<float>(y - 1) + x));
+    for (int j = 0; j < (int)kpts_aux[i].size(); j++) {
 
-    // Compute the Hessian
-    Dxx = (*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x + 1)
-        + *(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x - 1)
-        - 2.0f*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x)));
+      KeyPoint & kp = kpts_aux[i][j];
 
-    Dyy = (*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x)
-        + *(evolution_[kpts[i].class_id].Ldet.ptr<float>(y - 1) + x)
-        - 2.0f*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y)+x)));
+      if (kp.class_id == -1)
+        continue; // Skip a deleted keypoint
 
-    Dxy = (0.25f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x + 1)
-        + (*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y - 1) + x - 1)))
-        - (0.25f)*(*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y - 1) + x + 1)
-        + (*(evolution_[kpts[i].class_id].Ldet.ptr<float>(y + 1) + x - 1)));
+      int x = (int)(kp.pt.x / ratio);
+      int y = (int)(kp.pt.y / ratio);
 
-    // Solve the linear system
-    A(0, 0) = Dxx;
-    A(1, 1) = Dyy;
-    A(0, 1) = A(1, 0) = Dxy;
-    b(0) = -Dx;
-    b(1) = -Dy;
+      // Compute the gradient
+      float Dx = 0.5f * (ldet[ y     *cols + x + 1] - ldet[ y     *cols + x - 1]);
+      float Dy = 0.5f * (ldet[(y + 1)*cols + x    ] - ldet[(y - 1)*cols + x    ]);
 
-    solve(A, b, dst, DECOMP_LU);
+      // Compute the Hessian
+      float Dxx = ldet[ y     *cols + x + 1] + ldet[ y     *cols + x - 1] - 2.0f * ldet[y*cols + x];
+      float Dyy = ldet[(y + 1)*cols + x    ] + ldet[(y - 1)*cols + x    ] - 2.0f * ldet[y*cols + x];
+      float Dxy = 0.25f * (ldet[(y + 1)*cols + x + 1] + ldet[(y - 1)*cols + x - 1]
+                         - ldet[(y - 1)*cols + x + 1] - ldet[(y + 1)*cols + x - 1]);
 
-    if (fabs(dst(0)) <= 1.0f && fabs(dst(1)) <= 1.0f) {
-        kpts[i].pt.x = x + dst(0);
-      kpts[i].pt.y = y + dst(1);
-      kpts[i].pt.x *= evolution_[kpts[i].class_id].octave_ratio;
-      kpts[i].pt.y *= evolution_[kpts[i].class_id].octave_ratio;
-      kpts[i].angle = 0.0;
+      // Solve the linear system
+      Matx22f A{ Dxx, Dxy,
+                 Dxy, Dyy };
+      Vec2f   b{ -Dx, -Dy };
+      Vec2f   dst{ 0.0f, 0.0f };
+      solve(A, b, dst, DECOMP_LU);
 
-      // In OpenCV the size of a keypoint its the diameter
-      kpts[i].size *= 2.0f;
-    }
-    // Delete the point since its not stable
-    else {
-      kpts.erase(kpts.begin() + i);
-      i--;
+      float dx = dst(0);
+      float dy = dst(1);
+
+      if (fabs(dx) > 1.0f || fabs(dy) > 1.0f)
+        continue; // Ignore the point that is not stable
+
+      // Refine the coordinates
+      kp.pt.x += dx * ratio;
+      kp.pt.y += dy * ratio;
+
+      kp.angle = 0.0;
+      kp.size *= 2.0f; // In OpenCV the size of a keypoint is the diameter
+
+      // Push the refined keypoint to the final storage
+      kpts.push_back(kp);
     }
   }
 }
