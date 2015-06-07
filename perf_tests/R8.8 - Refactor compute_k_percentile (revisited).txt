@@ -1,0 +1,129 @@
+R8.8: Refactor compute_k_percentile (revisited) - May 5, 2015
+
+Description:
+  VS2013 profiler has shown that std::remove_if(), introduced in R8.1,
+  takes 1% of CPU time.  remove_if() can reduce about 10% of sqrtf(),
+  yet sqrtf() itself is vectorized and takes 0.3% of CPU time overall.
+
+  Reducing 0.03% of CPU time by paying 1% is not a good decision.
+  Hence, std::remove_if() is eliminated, and the code is now simpler
+  AND faster.
+
+  Besides, the type of modgs and hist is changed from std::vector
+  to cv::Mat.  The allocated memory will be aligned and SIMD operations
+  can behave faster.
+
+
+a. Debug configuration, 64-bit build, single thread
+
+AKAZE2: Last 264.015ms 3.788fps | Int 5065ms 19fr 3.751fps | EMA 3.740fps
+AKAZE2: Last 264.015ms 3.788fps | Int 5038ms 19fr 3.771fps | EMA 3.746fps
+AKAZE2: Last 265.015ms 3.773fps | Int 5029ms 19fr 3.778fps | EMA 3.752fps
+AKAZE2: Last 264.015ms 3.788fps | Int 5042ms 19fr 3.768fps | EMA 3.755fps
+AKAZE2: Last 265.015ms 3.773fps | Int 5037ms 19fr 3.772fps | EMA 3.759fps
+AKAZE2: Last 263.015ms 3.802fps | Int 5024ms 19fr 3.782fps | EMA 3.763fps
+AKAZE2: Last 263.015ms 3.802fps | Int 5018ms 19fr 3.786fps | EMA 3.768fps
+AKAZE2: Last 263.015ms 3.802fps | Int 5045ms 19fr 3.766fps | EMA 3.767fps
+AKAZE2: Last 264.015ms 3.788fps | Int 5035ms 19fr 3.773fps | EMA 3.769fps
+AKAZE2: Last 263.015ms 3.802fps | Int 5025ms 19fr 3.781fps | EMA 3.771fps
+AKAZE2: Last 263.015ms 3.802fps | Int 5011ms 19fr 3.791fps | EMA 3.775fps
+AKAZE2: Last 263.015ms 3.802fps | Int 5016ms 19fr 3.788fps | EMA 3.778fps
+AKAZE2: Last 267.015ms 3.745fps | Int 5027ms 19fr 3.779fps | EMA 3.778fps
+AKAZE2: Last 265.015ms 3.773fps | Int 5015ms 19fr 3.788fps | EMA 3.780fps
+AKAZE2: Last 265.015ms 3.773fps | Int 5007ms 19fr 3.794fps | EMA 3.783fps
+AKAZE2: Last 267.015ms 3.745fps | Int 5038ms 19fr 3.771fps | EMA 3.781fps
+AKAZE2: Last 264.015ms 3.788fps | Int 5019ms 19fr 3.785fps | EMA 3.782fps
+AKAZE2: Last 263.015ms 3.802fps | Int 5022ms 19fr 3.783fps | EMA 3.782fps
+AKAZE2: Last 263.015ms 3.802fps | Int 5025ms 19fr 3.781fps | EMA 3.782fps
+AKAZE2: Last 263.015ms 3.802fps | Int 5002ms 19fr 3.798fps | EMA 3.785fps
+AKAZE2: Last 266.015ms 3.759fps | Int 5033ms 19fr 3.775fps | EMA 3.783fps
+AKAZE2: Last 267.015ms 3.745fps | Int 5027ms 19fr 3.779fps | EMA 3.782fps
+AKAZE2: Last 262.015ms 3.817fps | Int 5017ms 19fr 3.787fps | EMA 3.783fps
+AKAZE2: Last 266.015ms 3.759fps | Int 5014ms 19fr 3.789fps | EMA 3.784fps
+
+
+b. Debug configuration, 64-bit build, eight threads; OPENCV_THREAD_COUNT==8
+
+AKAZE2: Last 281.016ms 3.559fps | Int 5060ms 18fr 3.557fps | EMA 3.587fps
+AKAZE2: Last 281.016ms 3.559fps | Int 5048ms 18fr 3.566fps | EMA 3.583fps
+AKAZE2: Last 318.018ms 3.144fps | Int 5108ms 18fr 3.524fps | EMA 3.571fps
+AKAZE2: Last 280.016ms 3.571fps | Int 5038ms 18fr 3.573fps | EMA 3.571fps
+AKAZE2: Last 290.016ms 3.448fps | Int 5287ms 19fr 3.594fps | EMA 3.576fps
+AKAZE2: Last 287.016ms 3.484fps | Int 5261ms 19fr 3.611fps | EMA 3.583fps
+AKAZE2: Last 284.016ms 3.521fps | Int 5024ms 18fr 3.583fps | EMA 3.583fps
+AKAZE2: Last 289.016ms 3.460fps | Int 5220ms 19fr 3.640fps | EMA 3.594fps
+AKAZE2: Last 276.015ms 3.623fps | Int 5045ms 18fr 3.568fps | EMA 3.589fps
+AKAZE2: Last 280.016ms 3.571fps | Int 5065ms 18fr 3.554fps | EMA 3.582fps
+AKAZE2: Last 289.016ms 3.460fps | Int 5286ms 19fr 3.594fps | EMA 3.584fps
+AKAZE2: Last 280.016ms 3.571fps | Int 5196ms 19fr 3.656fps | EMA 3.599fps
+AKAZE2: Last 283.016ms 3.533fps | Int 5066ms 18fr 3.553fps | EMA 3.590fps
+AKAZE2: Last 280.016ms 3.571fps | Int 5228ms 19fr 3.634fps | EMA 3.598fps
+AKAZE2: Last 279.015ms 3.584fps | Int 5009ms 18fr 3.593fps | EMA 3.597fps
+AKAZE2: Last 283.016ms 3.533fps | Int 5267ms 19fr 3.607fps | EMA 3.599fps
+AKAZE2: Last 288.016ms 3.472fps | Int 5061ms 18fr 3.556fps | EMA 3.591fps
+AKAZE2: Last 275.015ms 3.636fps | Int 5220ms 19fr 3.640fps | EMA 3.601fps
+AKAZE2: Last 253.014ms 3.952fps | Int 5104ms 18fr 3.526fps | EMA 3.586fps
+AKAZE2: Last 252.014ms 3.968fps | Int 5008ms 18fr 3.594fps | EMA 3.587fps
+AKAZE2: Last 280.016ms 3.571fps | Int 5257ms 19fr 3.614fps | EMA 3.593fps
+AKAZE2: Last 280.016ms 3.571fps | Int 5010ms 18fr 3.593fps | EMA 3.593fps
+AKAZE2: Last 284.016ms 3.521fps | Int 5032ms 18fr 3.577fps | EMA 3.590fps
+AKAZE2: Last 284.016ms 3.521fps | Int 5048ms 18fr 3.566fps | EMA 3.585fps
+
+
+c. Release configuration, 64-bit build, single thread
+
+AKAZE2: Last 33.001ms 30.302fps | Int 5008ms 152fr 30.350fps | EMA 30.183fps
+AKAZE2: Last 32.001ms 31.249fps | Int 5028ms 154fr 30.627fps | EMA 30.272fps
+AKAZE2: Last 32.001ms 31.249fps | Int 5010ms 153fr 30.537fps | EMA 30.325fps
+AKAZE2: Last 32.001ms 31.249fps | Int 5010ms 153fr 30.537fps | EMA 30.367fps
+AKAZE2: Last 34.002ms 29.410fps | Int 5013ms 153fr 30.519fps | EMA 30.398fps
+AKAZE2: Last 32.001ms 31.249fps | Int 5025ms 153fr 30.446fps | EMA 30.407fps
+AKAZE2: Last 33.001ms 30.302fps | Int 5006ms 152fr 30.362fps | EMA 30.398fps
+AKAZE2: Last 32.001ms 31.249fps | Int 5028ms 153fr 30.428fps | EMA 30.404fps
+AKAZE2: Last 33.001ms 30.302fps | Int 5002ms 153fr 30.586fps | EMA 30.441fps
+AKAZE2: Last 33.001ms 30.302fps | Int 5020ms 153fr 30.476fps | EMA 30.448fps
+AKAZE2: Last 33.001ms 30.302fps | Int 5012ms 154fr 30.725fps | EMA 30.503fps
+AKAZE2: Last 34.002ms 29.410fps | Int 5015ms 153fr 30.507fps | EMA 30.504fps
+AKAZE2: Last 33.001ms 30.302fps | Int 5019ms 153fr 30.482fps | EMA 30.500fps
+AKAZE2: Last 33.001ms 30.302fps | Int 5008ms 153fr 30.549fps | EMA 30.509fps
+AKAZE2: Last 33.001ms 30.302fps | Int 5013ms 154fr 30.718fps | EMA 30.551fps
+AKAZE2: Last 32.001ms 31.249fps | Int 5007ms 153fr 30.555fps | EMA 30.552fps
+AKAZE2: Last 32.001ms 31.249fps | Int 5012ms 153fr 30.525fps | EMA 30.547fps
+AKAZE2: Last 33.001ms 30.302fps | Int 5025ms 153fr 30.446fps | EMA 30.527fps
+AKAZE2: Last 33.001ms 30.302fps | Int 5031ms 154fr 30.608fps | EMA 30.543fps
+AKAZE2: Last 32.001ms 31.249fps | Int 5012ms 153fr 30.525fps | EMA 30.539fps
+AKAZE2: Last 33.001ms 30.302fps | Int 5017ms 153fr 30.495fps | EMA 30.530fps
+AKAZE2: Last 33.001ms 30.302fps | Int 5016ms 153fr 30.501fps | EMA 30.524fps
+AKAZE2: Last 33.001ms 30.302fps | Int 5024ms 153fr 30.452fps | EMA 30.510fps
+AKAZE2: Last 32.001ms 31.249fps | Int 5004ms 153fr 30.574fps | EMA 30.523fps
+
+
+d. Release configuration, 64-bit build, eight threads; OPENCV_THREAD_COUNT==8
+
+AKAZE2: Last 46.002ms 21.738fps | Int 5020ms 108fr 21.513fps | EMA 20.726fps
+AKAZE2: Last 46.002ms 21.738fps | Int 5024ms 106fr 21.098fps | EMA 20.800fps
+AKAZE2: Last 46.002ms 21.738fps | Int 5011ms 108fr 21.551fps | EMA 20.951fps
+AKAZE2: Last 47.002ms 21.276fps | Int 5040ms 106fr 21.031fps | EMA 20.967fps
+AKAZE2: Last 49.002ms 20.407fps | Int 5023ms 108fr 21.500fps | EMA 21.073fps
+AKAZE2: Last 46.002ms 21.738fps | Int 5005ms 106fr 21.178fps | EMA 21.094fps
+AKAZE2: Last 46.002ms 21.738fps | Int 5027ms 108fr 21.483fps | EMA 21.172fps
+AKAZE2: Last 47.002ms 21.276fps | Int 5000ms 106fr 21.199fps | EMA 21.177fps
+AKAZE2: Last 46.002ms 21.738fps | Int 5012ms 108fr 21.547fps | EMA 21.251fps
+AKAZE2: Last 47.002ms 21.276fps | Int 5010ms 107fr 21.356fps | EMA 21.272fps
+AKAZE2: Last 47.002ms 21.276fps | Int 5020ms 108fr 21.513fps | EMA 21.320fps
+AKAZE2: Last 47.002ms 21.276fps | Int 5008ms 107fr 21.365fps | EMA 21.329fps
+AKAZE2: Last 47.002ms 21.276fps | Int 5011ms 108fr 21.551fps | EMA 21.374fps
+AKAZE2: Last 48.002ms 20.832fps | Int 5031ms 102fr 20.273fps | EMA 21.153fps
+AKAZE2: Last 46.002ms 21.738fps | Int 5014ms 108fr 21.538fps | EMA 21.230fps
+AKAZE2: Last 46.002ms 21.738fps | Int 5014ms 106fr 21.140fps | EMA 21.212fps
+AKAZE2: Last 46.002ms 21.738fps | Int 5008ms 108fr 21.564fps | EMA 21.283fps
+AKAZE2: Last 47.002ms 21.276fps | Int 5002ms 106fr 21.190fps | EMA 21.264fps
+AKAZE2: Last 46.002ms 21.738fps | Int 5011ms 108fr 21.551fps | EMA 21.322fps
+AKAZE2: Last 46.002ms 21.738fps | Int 5016ms 107fr 21.331fps | EMA 21.323fps
+AKAZE2: Last 46.002ms 21.738fps | Int 5018ms 108fr 21.521fps | EMA 21.363fps
+AKAZE2: Last 46.002ms 21.738fps | Int 5016ms 106fr 21.131fps | EMA 21.317fps
+AKAZE2: Last 46.002ms 21.738fps | Int 5041ms 106fr 21.026fps | EMA 21.259fps
+AKAZE2: Last 47.002ms 21.276fps | Int 5026ms 106fr 21.089fps | EMA 21.225fps
+
+
+END.

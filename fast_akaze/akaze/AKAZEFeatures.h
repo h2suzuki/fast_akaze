@@ -42,8 +42,7 @@ private:
   /// Preallocated temporary variables
   cv::Mat gray_;
   cv::Mat lflow_, lstep_;
-  std::vector<int> histgram_;
-  std::vector<float> modgs_;
+  cv::Mat histgram_, modgs_;
   std::vector<std::vector<cv::KeyPoint>> kpts_aux_;
 
 public:
