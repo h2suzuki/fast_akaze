@@ -51,6 +51,9 @@
     <ClInclude Include="akaze\utils.h">
       <Filter>Header Files\AKAZE</Filter>
     </ClInclude>
+    <ClInclude Include="features2d_akaze2.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

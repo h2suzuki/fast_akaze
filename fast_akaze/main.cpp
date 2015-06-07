@@ -3,6 +3,8 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/features2d.hpp>
 
+#include "features2d_akaze2.hpp"
+
 #include <functional>	// ref()
 #include <atomic>
 #include <thread>
