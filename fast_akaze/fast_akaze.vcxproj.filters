@@ -118,5 +118,8 @@
     <Text Include="..\perf_tests\R8.6 - Refactor Get_MLDB_Descriptor_Subset.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R8.7 - Refactor Compute_Determinant_Hessian_Response.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>

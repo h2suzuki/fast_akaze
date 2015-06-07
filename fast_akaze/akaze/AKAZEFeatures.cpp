@@ -235,73 +235,46 @@ void AKAZEFeaturesV2::Feature_Detection(std::vector<KeyPoint>& kpts)
 }
 
 /* ************************************************************************* */
-class MultiscaleDerivativesAKAZEInvokerV2 : public ParallelLoopBody
-{
-public:
-    explicit MultiscaleDerivativesAKAZEInvokerV2(std::vector<TEvolutionV2>& ev, const AKAZEOptionsV2& opt)
-    : evolution_(&ev)
-    , options_(opt)
-  {
-  }
-
-  void operator()(const Range& range) const
-  {
-    std::vector<TEvolutionV2>& evolution = *evolution_;
-
-    for (int i = range.start; i < range.end; i++)
-    {
-      sepFilter2D(evolution[i].Lsmooth, evolution[i].Lx, CV_32F, evolution[i].DxKx, evolution[i].DxKy);
-      sepFilter2D(evolution[i].Lsmooth, evolution[i].Ly, CV_32F, evolution[i].DyKx, evolution[i].DyKy);
-      sepFilter2D(evolution[i].Lx, evolution[i].Lxx, CV_32F, evolution[i].DxKx, evolution[i].DxKy);
-      sepFilter2D(evolution[i].Ly, evolution[i].Lyy, CV_32F, evolution[i].DyKx, evolution[i].DyKy);
-      sepFilter2D(evolution[i].Lx, evolution[i].Lxy, CV_32F, evolution[i].DyKx, evolution[i].DyKy);
-
-      evolution[i].Lx = evolution[i].Lx*(evolution[i].sigma_size);
-      evolution[i].Ly = evolution[i].Ly*(evolution[i].sigma_size);
-      evolution[i].Lxx = evolution[i].Lxx*(evolution[i].sigma_size * evolution[i].sigma_size);
-      evolution[i].Lxy = evolution[i].Lxy*(evolution[i].sigma_size * evolution[i].sigma_size);
-      evolution[i].Lyy = evolution[i].Lyy*(evolution[i].sigma_size * evolution[i].sigma_size);
-    }
-  }
-
-private:
-  std::vector<TEvolutionV2>*  evolution_;
-  AKAZEOptionsV2              options_;
-};
-
-/* ************************************************************************* */
-/**
- * @brief This method computes the multiscale derivatives for the nonlinear scale space
- */
-void AKAZEFeaturesV2::Compute_Multiscale_Derivatives(void)
-{
-  parallel_for_(Range(0, (int)evolution_.size()),
-                                        MultiscaleDerivativesAKAZEInvokerV2(evolution_, options_));
-}
-
-/* ************************************************************************* */
 /**
  * @brief This method computes the feature detector response for the nonlinear scale space
  * @note We use the Hessian determinant as the feature detector response
  */
 void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
 
-  // Firstly compute the multiscale derivatives
-  Compute_Multiscale_Derivatives();
+    for (size_t i = 0; i < evolution_.size(); i++)
+    {
+      TEvolutionV2 &e = evolution_[i];
 
-  for (size_t i = 0; i < evolution_.size(); i++)
-  {
-    const int total = evolution_[i].Ldet.rows * evolution_[i].Ldet.cols;
-    const float * lxx = evolution_[i].Lxx.ptr<float>(0);
-    const float * lxy = evolution_[i].Lxy.ptr<float>(0);
-    const float * lyy = evolution_[i].Lyy.ptr<float>(0);
-    float * ldet = evolution_[i].Ldet.ptr<float>(0);
+      const int total = e.Lsmooth.cols * e.Lsmooth.rows;
+      const float sigma_size = (float)e.sigma_size;
 
-    // Compute Ldet by Lxx.mul(Lyy) - Lxy.mul(Lxy)
-    for (int j = 0; j < total; j++) {
-      ldet[j] = lxx[j]*lyy[j] - lxy[j]*lxy[j];
+      float *lx = e.Lx.ptr<float>(0);
+      float *ly = e.Ly.ptr<float>(0);
+      float *lxx = e.Lxx.ptr<float>(0);
+      float *lxy = e.Lxy.ptr<float>(0);
+      float *lyy = e.Lyy.ptr<float>(0);
+      float *ldet = e.Ldet.ptr<float>(0);
+
+      // Firstly compute the multiscale derivatives
+      sepFilter2D(e.Lsmooth, e.Lx, CV_32F, e.DxKx, e.DxKy);
+      for (int j = 0; j < total; j++) lx[j] *= sigma_size;
+
+      sepFilter2D(e.Lx, e.Lxx, CV_32F, e.DxKx, e.DxKy);
+      for (int j = 0; j < total; j++) lxx[j] *= sigma_size;
+
+      sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
+      for (int j = 0; j < total; j++) lxy[j] *= sigma_size;
+
+      sepFilter2D(e.Lsmooth, e.Ly, CV_32F, e.DyKx, e.DyKy);
+      for (int j = 0; j < total; j++) ly[j] *= sigma_size;
+
+      sepFilter2D(e.Ly, e.Lyy, CV_32F, e.DyKx, e.DyKy);
+      for (int j = 0; j < total; j++) lyy[j] *= sigma_size;
+
+      // Compute Ldet by Lxx.mul(Lyy) - Lxy.mul(Lxy)
+      for (int j = 0; j < total; j++)
+        ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
     }
-  }
 }
 
 /* ************************************************************************* */
