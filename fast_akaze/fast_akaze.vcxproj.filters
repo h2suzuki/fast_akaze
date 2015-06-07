@@ -88,5 +88,8 @@
     <Text Include="..\perf_tests\R3 - Make AKAZEFeature persistent.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R4 - Change Mat zeros to Mat create.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>
