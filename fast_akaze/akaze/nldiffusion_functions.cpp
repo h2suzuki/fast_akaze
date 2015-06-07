@@ -316,53 +316,90 @@ void compute_scharr_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _k
     Mat(ky.rows, ky.cols, CV_32F, &kerI[0]).copyTo(ky);
 }
 
-class Nld_Step_Scalar_InvokerV2 : public cv::ParallelLoopBody
+
+
+inline
+void nld_step_scalar_one_lane(const cv::Mat& Lt, const cv::Mat& Lf, cv::Mat& Lstep, int idx, int skip)
 {
-public:
-    Nld_Step_Scalar_InvokerV2(const cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep)
-        : _Ld(&Ld)
-        , _c(&c)
-        , _Lstep(&Lstep)
-    {
+    /* The labeling scheme for this five star stencil:
+         [    a    ]
+         [ -1 c +1 ]
+         [    b    ]
+     */
+
+    const int cols = Lt.cols - 2;
+    int row = idx;
+
+    const float *lt_a, *lt_c, *lt_b;
+    const float *lf_a, *lf_c, *lf_b;
+    float *dst;
+
+    // Process the top row
+    if (row == 0) {
+        lt_c = Lt.ptr<float>(0) + 1;  /* Skip the left-most column by +1 */
+        lf_c = Lf.ptr<float>(0) + 1;
+        lt_b = Lt.ptr<float>(1) + 1;
+        lf_b = Lf.ptr<float>(1) + 1;
+        dst = Lstep.ptr<float>(0) + 1;
+
+        for (int j = 0; j < cols; j++) {
+            dst[j] = (lf_c[j] + lf_c[j + 1])*(lt_c[j + 1] - lt_c[j]) +
+                     (lf_c[j] + lf_c[j - 1])*(lt_c[j - 1] - lt_c[j]) +
+                     (lf_c[j] + lf_b[j    ])*(lt_b[j    ] - lt_c[j]);
+        }
+        row += skip;
     }
 
-    virtual ~Nld_Step_Scalar_InvokerV2()
+    // Process the middle rows
+    for (; row < Lt.rows - 1; row += skip)
     {
+        lt_a = Lt.ptr<float>(row - 1);
+        lf_a = Lf.ptr<float>(row - 1);
+        lt_c = Lt.ptr<float>(row    );
+        lf_c = Lf.ptr<float>(row    );
+        lt_b = Lt.ptr<float>(row + 1);
+        lf_b = Lf.ptr<float>(row + 1);
+        dst = Lstep.ptr<float>(row);
 
-    }
+        // The left-most column
+        dst[0] = (lf_c[0] + lf_c[1])*(lt_c[1] - lt_c[0]) +
+                 (lf_c[0] + lf_b[0])*(lt_b[0] - lt_c[0]) +
+                 (lf_c[0] + lf_a[0])*(lt_a[0] - lt_c[0]);
 
-    void operator()(const cv::Range& range) const
-    {
-        const cv::Mat& Ld = *_Ld;
-        const cv::Mat& c = *_c;
-        cv::Mat& Lstep = *_Lstep;
+        lt_a++; lt_c++; lt_b++;
+        lf_a++; lf_c++; lf_b++;
+        dst++;
 
-        for (int i = range.start; i < range.end; i++)
+        // The middle columns
+        for (int j = 0; j < cols; j++)
         {
-            const float *c_prev  = c.ptr<float>(i - 1);
-            const float *c_curr  = c.ptr<float>(i);
-            const float *c_next  = c.ptr<float>(i + 1);
-            const float *ld_prev = Ld.ptr<float>(i - 1);
-            const float *ld_curr = Ld.ptr<float>(i);
-            const float *ld_next = Ld.ptr<float>(i + 1);
+            dst[j] = (lf_c[j] + lf_c[j + 1])*(lt_c[j + 1] - lt_c[j]) +
+                     (lf_c[j] + lf_c[j - 1])*(lt_c[j - 1] - lt_c[j]) +
+                     (lf_c[j] + lf_b[j    ])*(lt_b[j    ] - lt_c[j]) +
+                     (lf_c[j] + lf_a[j    ])*(lt_a[j    ] - lt_c[j]);
+        }
 
-            float *dst  = Lstep.ptr<float>(i);
+        // The right-most column
+        dst[cols] = (lf_c[cols] + lf_c[cols - 1])*(lt_c[cols - 1] - lt_c[cols]) +
+                    (lf_c[cols] + lf_b[cols    ])*(lt_b[cols    ] - lt_c[cols]) +
+                    (lf_c[cols] + lf_a[cols    ])*(lt_a[cols    ] - lt_c[cols]);
+    }
 
-            for (int j = 1; j < Lstep.cols - 1; j++)
-            {
-                float xpos = (c_curr[j]   + c_curr[j+1])*(ld_curr[j+1] - ld_curr[j]);
-                float xneg = (c_curr[j-1] + c_curr[j])  *(ld_curr[j]   - ld_curr[j-1]);
-                float ypos = (c_curr[j]   + c_next[j])  *(ld_next[j]   - ld_curr[j]);
-                float yneg = (c_prev[j]   + c_curr[j])  *(ld_curr[j]   - ld_prev[j]);
-                dst[j] = (xpos - xneg + ypos - yneg);
-            }
+    // Process the bottom row
+    if (row == Lt.rows - 1) {
+        lt_a = Lt.ptr<float>(row - 1) + 1;  /* Skip the left-most column by +1 */
+        lf_a = Lf.ptr<float>(row - 1) + 1;
+        lt_c = Lt.ptr<float>(row    ) + 1;
+        lf_c = Lf.ptr<float>(row    ) + 1;
+        dst = Lstep.ptr<float>(row) +1;
+
+        for (int j = 0; j < cols; j++) {
+            dst[j] = (lf_c[j] + lf_c[j + 1])*(lt_c[j + 1] - lt_c[j]) +
+                     (lf_c[j] + lf_c[j - 1])*(lt_c[j - 1] - lt_c[j]) +
+                     (lf_c[j] + lf_a[j    ])*(lt_a[j    ] - lt_c[j]);
         }
     }
-private:
-    const cv::Mat * _Ld;
-    const cv::Mat * _c;
-    cv::Mat * _Lstep;
-};
+}
 
 /* ************************************************************************* */
 /**
@@ -375,67 +412,12 @@ private:
 * The function c is a scalar value that depends on the gradient norm
 * dL_by_ds = d(c dL_by_dx)_by_dx + d(c dL_by_dy)_by_dy
 */
-void nld_step_scalarV2(const cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep) {
-
-    cv::parallel_for_(cv::Range(1, Lstep.rows - 1), Nld_Step_Scalar_InvokerV2(Ld, c, Lstep), (double)Ld.total()/(1 << 16));
-
-    float xneg, xpos, yneg, ypos;
-    float* dst = Lstep.ptr<float>(0);
-    const float* cprv = NULL;
-    const float* ccur  = c.ptr<float>(0);
-    const float* cnxt  = c.ptr<float>(1);
-    const float* ldprv = NULL;
-    const float* ldcur = Ld.ptr<float>(0);
-    const float* ldnxt = Ld.ptr<float>(1);
-    for (int j = 1; j < Lstep.cols - 1; j++) {
-        xpos = (ccur[j]   + ccur[j+1]) * (ldcur[j+1] - ldcur[j]);
-        xneg = (ccur[j-1] + ccur[j])   * (ldcur[j]   - ldcur[j-1]);
-        ypos = (ccur[j]   + cnxt[j])   * (ldnxt[j]   - ldcur[j]);
-        dst[j] = (xpos - xneg + ypos);
-    }
-
-    dst = Lstep.ptr<float>(Lstep.rows - 1);
-    ccur = c.ptr<float>(Lstep.rows - 1);
-    cprv = c.ptr<float>(Lstep.rows - 2);
-    ldcur = Ld.ptr<float>(Lstep.rows - 1);
-    ldprv = Ld.ptr<float>(Lstep.rows - 2);
-
-    for (int j = 1; j < Lstep.cols - 1; j++) {
-        xpos = (ccur[j] + ccur[j+1]) * (ldcur[j+1] - ldcur[j]);
-        xneg = (ccur[j-1] + ccur[j]) * (ldcur[j] - ldcur[j-1]);
-        yneg = (cprv[j] + ccur[j])   * (ldcur[j] - ldprv[j]);
-        dst[j] = (xpos - xneg - yneg);
-    }
-
-    ccur = c.ptr<float>(1);
-    ldcur = Ld.ptr<float>(1);
-    cprv = c.ptr<float>(0);
-    ldprv = Ld.ptr<float>(0);
-
-    int r0 = Lstep.cols - 1;
-    int r1 = Lstep.cols - 2;
-
-    for (int i = 1; i < Lstep.rows - 1; i++) {
-        cnxt = c.ptr<float>(i + 1);
-        ldnxt = Ld.ptr<float>(i + 1);
-        dst = Lstep.ptr<float>(i);
-
-        xpos = (ccur[0] + ccur[1]) * (ldcur[1] - ldcur[0]);
-        ypos = (ccur[0] + cnxt[0]) * (ldnxt[0] - ldcur[0]);
-        yneg = (cprv[0] + ccur[0]) * (ldcur[0] - ldprv[0]);
-        dst[0] = (xpos + ypos - yneg);
-
-        xneg = (ccur[r1] + ccur[r0]) * (ldcur[r0] - ldcur[r1]);
-        ypos = (ccur[r0] + cnxt[r0]) * (ldnxt[r0] - ldcur[r0]);
-        yneg = (cprv[r0] + ccur[r0]) * (ldcur[r0] - ldprv[r0]);
-        dst[r0] = (-xneg + ypos - yneg);
-
-        cprv = ccur;
-        ccur = cnxt;
-        ldprv = ldcur;
-        ldcur = ldnxt;
-    }
+void nld_step_scalarV2(const cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep)
+{
+    nld_step_scalar_one_lane(Ld, c, Lstep, 0, 1);
 }
+
+
 
 /* ************************************************************************* */
 /**
