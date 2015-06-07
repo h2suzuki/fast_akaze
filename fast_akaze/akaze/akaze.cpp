@@ -50,7 +50,7 @@ http://www.robesafe.com/personal/pablo.alcantarilla/papers/Alcantarilla13bmvc.pd
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
-#include "../features2d_akaze2.hpp"  /* Define AKAZE2; use it instead of <opencv2/features2d.hpp> */
+#include "../features2d_akaze2.hpp"  // Define AKAZE2; included in place of <opencv2/features2d.hpp>
 
 #include "AKAZEFeatures.h"
 
@@ -72,6 +72,8 @@ namespace cv
         , octaves(_octaves)
         , sublevels(_sublevels)
         , diffusivity(_diffusivity)
+        , img_width(-1)
+        , img_height(-1)
         {
           cout << "AKAZE_Impl2 constructor called" << endl;
         }
@@ -81,25 +83,25 @@ namespace cv
 
         }
 
-        void setDescriptorType(int dtype) { descriptor = dtype; }
+        void setDescriptorType(int dtype_) { descriptor = dtype_; impl.release(); }
         int getDescriptorType() const { return descriptor; }
 
-        void setDescriptorSize(int dsize) { descriptor_size = dsize; }
+        void setDescriptorSize(int dsize_) { descriptor_size = dsize_; impl.release(); }
         int getDescriptorSize() const { return descriptor_size; }
 
-        void setDescriptorChannels(int dch) { descriptor_channels = dch; }
+        void setDescriptorChannels(int dch_) { descriptor_channels = dch_; impl.release(); }
         int getDescriptorChannels() const { return descriptor_channels; }
 
-        void setThreshold(double threshold_) { threshold = (float)threshold_; }
+        void setThreshold(double th_) { threshold = (float)th_; if (!impl.empty()) impl->setThreshold(th_); }
         double getThreshold() const { return threshold; }
 
-        void setNOctaves(int octaves_) { octaves = octaves_; }
+        void setNOctaves(int octaves_) { octaves = octaves_; impl.release(); }
         int getNOctaves() const { return octaves; }
 
-        void setNOctaveLayers(int octaveLayers_) { sublevels = octaveLayers_; }
+        void setNOctaveLayers(int octaveLayers_) { sublevels = octaveLayers_; impl.release(); }
         int getNOctaveLayers() const { return sublevels; }
 
-        void setDiffusivity(int diff_) { diffusivity = diff_; }
+        void setDiffusivity(int diff_) { diffusivity = diff_; if (!impl.empty()) impl->setDiffusivity(diff_); }
         int getDiffusivity() const { return diffusivity; }
 
         // returns the descriptor size in bytes
@@ -185,23 +187,36 @@ namespace cv
 
             CV_Assert( ! img1_32.empty() );
 
-            AKAZEOptionsV2 options;
-            options.descriptor = descriptor;
-            options.descriptor_channels = descriptor_channels;
-            options.descriptor_size = descriptor_size;
-            options.img_width = img.cols;
-            options.img_height = img.rows;
-            options.dthreshold = threshold;
-            options.omax = octaves;
-            options.nsublevels = sublevels;
-            options.diffusivity = diffusivity;
+            if (img_width != img.cols) {
+                img_width = img.cols;
+                impl.release();
+            }
 
-            AKAZEFeaturesV2 impl(options);
-            impl.Create_Nonlinear_Scale_Space(img1_32);
+            if (img_height != img.rows) {
+                img_height = img.rows;
+                impl.release();
+            }
+
+            if (impl.empty()) {
+                AKAZEOptionsV2 options;
+                options.descriptor = descriptor;
+                options.descriptor_channels = descriptor_channels;
+                options.descriptor_size = descriptor_size;
+                options.img_width = img_width;
+                options.img_height = img_height;
+                options.dthreshold = threshold;
+                options.omax = octaves;
+                options.nsublevels = sublevels;
+                options.diffusivity = diffusivity;
+
+                impl = makePtr<AKAZEFeaturesV2>(options);
+            }
+
+            impl->Create_Nonlinear_Scale_Space(img1_32);
 
             if (!useProvidedKeypoints)
             {
-                impl.Feature_Detection(keypoints);
+                impl->Feature_Detection(keypoints);
             }
 
             if (!mask.empty())
@@ -212,7 +227,7 @@ namespace cv
             if( descriptors.needed() )
             {
                 Mat& desc = descriptors.getMatRef();
-                impl.Compute_Descriptors(keypoints, desc);
+                impl->Compute_Descriptors(keypoints, desc);
 
                 CV_Assert((!desc.rows || desc.cols == descriptorSize()));
                 CV_Assert((!desc.rows || (desc.type() == descriptorType())));
@@ -241,6 +256,7 @@ namespace cv
             diffusivity = (int)fn["diffusivity"];
         }
 
+        Ptr<AKAZEFeaturesV2> impl;
         int descriptor;
         int descriptor_channels;
         int descriptor_size;
@@ -248,6 +264,8 @@ namespace cv
         int octaves;
         int sublevels;
         int diffusivity;
+        int img_width;
+        int img_height;
     };
 
     Ptr<AKAZE2> AKAZE2::create(int descriptor_type,

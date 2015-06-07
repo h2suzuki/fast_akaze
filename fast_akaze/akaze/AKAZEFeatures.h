@@ -11,6 +11,10 @@
 
 /* ************************************************************************* */
 // Includes
+#include <vector>
+
+#include <opencv2/core.hpp>
+
 #include "AKAZEConfig.h"
 #include "TEvolution.h"
 
@@ -41,6 +45,12 @@ public:
 
   /// Constructor with input arguments
   AKAZEFeaturesV2(const AKAZEOptionsV2& options);
+
+  /// Getters and Setters
+  void setThreshold(double threshold_) { options_.dthreshold = (float)threshold_; };
+  double getThreshold() const { return options_.dthreshold; }
+  void setDiffusivity(int diff_) { options_.diffusivity = diff_; }
+  int getDiffusivity() const { return options_.diffusivity; }
 
   /// Scale Space methods
   void Allocate_Memory_Evolution();
