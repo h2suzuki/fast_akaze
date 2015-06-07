@@ -35,7 +35,7 @@ void compute_scharr_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _k
 void image_derivatives_scharrV2(const cv::Mat& src, cv::Mat& dst, int xorder, int yorder);
 
 // Nonlinear diffusion filtering scalar step
-void nld_step_scalarV2(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float stepsize);
+void nld_step_scalarV2(const cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep);
 
 // For non-maxima suppresion
 bool check_maximum_neighbourhoodV2(const cv::Mat& img, int dsize, float value, int row, int col, bool same_img);

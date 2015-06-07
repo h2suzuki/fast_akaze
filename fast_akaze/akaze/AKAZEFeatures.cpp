@@ -182,10 +182,18 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
       break;
     }
 
-    // Perform FED n inner steps
+    const int total = Lstep.rows * Lstep.cols;
+    float * lt = evolution_[i].Lt.ptr<float>(0);
+    float * lstep = Lstep.ptr<float>(0);
     std::vector<float> & tsteps = tsteps_[i - 1];
+
+    // Perform FED n inner steps
     for (int j = 0; j < tsteps.size(); j++) {
-      nld_step_scalarV2(evolution_[i].Lt, Lflow, Lstep, tsteps[j]);
+      nld_step_scalarV2(evolution_[i].Lt, Lflow, Lstep);
+
+      const float step_size = tsteps[j];
+      for (int k = 0; k < total; k++)
+        lt[k] += lstep[k] * 0.5f * step_size;
     }
   }
 
@@ -262,15 +270,15 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
 
   for (size_t i = 0; i < evolution_.size(); i++)
   {
-    for (int ix = 0; ix < evolution_[i].Ldet.rows; ix++)
-    {
-      for (int jx = 0; jx < evolution_[i].Ldet.cols; jx++)
-      {
-        float lxx = *(evolution_[i].Lxx.ptr<float>(ix)+jx);
-        float lxy = *(evolution_[i].Lxy.ptr<float>(ix)+jx);
-        float lyy = *(evolution_[i].Lyy.ptr<float>(ix)+jx);
-        *(evolution_[i].Ldet.ptr<float>(ix)+jx) = (lxx*lyy - lxy*lxy);
-      }
+    const int total = evolution_[i].Ldet.rows * evolution_[i].Ldet.cols;
+    const float * lxx = evolution_[i].Lxx.ptr<float>(0);
+    const float * lxy = evolution_[i].Lxy.ptr<float>(0);
+    const float * lyy = evolution_[i].Lyy.ptr<float>(0);
+    float * ldet = evolution_[i].Ldet.ptr<float>(0);
+
+    // Compute Ldet by Lxx.mul(Lyy) - Lxy.mul(Lxy)
+    for (int j = 0; j < total; j++) {
+      ldet[j] = lxx[j]*lyy[j] - lxy[j]*lxy[j];
     }
   }
 }

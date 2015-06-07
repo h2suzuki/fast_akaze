@@ -96,18 +96,17 @@ void image_derivatives_scharrV2(const cv::Mat& src, cv::Mat& dst, int xorder, in
  */
 void pm_g1V2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
 
-  Size sz = Lx.size();
-  float inv_k = 1.0f / (k*k);
-  for (int y = 0; y < sz.height; y++) {
+  // Compute: dst = exp((Lx.mul(Lx) + Ly.mul(Ly)) / (-k * k))
 
-    const float* Lx_row = Lx.ptr<float>(y);
-    const float* Ly_row = Ly.ptr<float>(y);
-    float* dst_row = dst.ptr<float>(y);
+  const float neg_inv_k2 = -1.0f / (k*k);
 
-    for (int x = 0; x < sz.width; x++) {
-      dst_row[x] = (-inv_k*(Lx_row[x]*Lx_row[x] + Ly_row[x]*Ly_row[x]));
-    }
-  }
+  const int total = Lx.rows * Lx.cols;
+  const float* lx = Lx.ptr<float>(0);
+  const float* ly = Ly.ptr<float>(0);
+  float* d = dst.ptr<float>(0);
+
+  for (int i = 0; i < total; i++)
+    d[i] = neg_inv_k2 * (lx[i]*lx[i] + ly[i]*ly[i]);
 
   exp(dst, dst);
 }
@@ -123,19 +122,19 @@ void pm_g1V2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
  */
 void pm_g2V2(const cv::Mat &Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
 
-    Size sz = Lx.size();
-    dst.create(sz, Lx.type());
-    float k2inv = 1.0f / (k * k);
+  // Compute: dst = 1.0f / (1.0f + ((Lx.mul(Lx) + Ly.mul(Ly)) / (k * k)) );
 
-    for(int y = 0; y < sz.height; y++) {
-        const float *Lx_row = Lx.ptr<float>(y);
-        const float *Ly_row = Ly.ptr<float>(y);
-        float* dst_row = dst.ptr<float>(y);
-        for(int x = 0; x < sz.width; x++) {
-            dst_row[x] = 1.0f / (1.0f + ((Lx_row[x] * Lx_row[x] + Ly_row[x] * Ly_row[x]) * k2inv));
-        }
-    }
+  const float inv_k2 = 1.0f / (k * k);
+
+  const int total = Lx.rows * Lx.cols;
+  const float* lx = Lx.ptr<float>(0);
+  const float* ly = Ly.ptr<float>(0);
+  float* d = dst.ptr<float>(0);
+
+  for (int i = 0; i < total; i++)
+    d[i] = 1.0f / (1.0f + ((lx[i] * lx[i] + ly[i] * ly[i]) * inv_k2));
 }
+
 /* ************************************************************************* */
 /**
  * @brief This function computes Weickert conductivity coefficient gw
@@ -149,22 +148,24 @@ void pm_g2V2(const cv::Mat &Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
  */
 void weickert_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
 
-  Size sz = Lx.size();
-  float inv_k = 1.0f / (k*k);
-  for (int y = 0; y < sz.height; y++) {
+  // Compute: dst = 1.0f - exp(-3.315f / ((Lx.mul(Lx) + Ly.mul(Ly)) / (k * k))^4)
 
-    const float* Lx_row = Lx.ptr<float>(y);
-    const float* Ly_row = Ly.ptr<float>(y);
-    float* dst_row = dst.ptr<float>(y);
+  const float inv_k2 = 1.0f / (k * k);
 
-    for (int x = 0; x < sz.width; x++) {
-      float dL = inv_k*(Lx_row[x]*Lx_row[x] + Ly_row[x]*Ly_row[x]);
-      dst_row[x] = -3.315f/(dL*dL*dL*dL);
-    }
+  const int total = Lx.rows * Lx.cols;
+  const float* lx = Lx.ptr<float>(0);
+  const float* ly = Ly.ptr<float>(0);
+  float* d = dst.ptr<float>(0);
+
+  for (int i = 0; i < total; i++) {
+    float dL = inv_k2 * (lx[i] * lx[i] + ly[i] * ly[i]);
+    d[i] = -3.315f / (dL*dL*dL*dL);
   }
 
   exp(dst, dst);
-  dst = 1.0 - dst;
+
+  for (int i = 0; i < total; i++)
+    d[i] = 1.0f - d[i];
 }
 
 
@@ -182,19 +183,17 @@ void weickert_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, 
 */
 void charbonnier_diffusivityV2(const cv::Mat& Lx, const cv::Mat& Ly, cv::Mat& dst, float k) {
 
-  Size sz = Lx.size();
-  float inv_k = 1.0f / (k*k);
-  for (int y = 0; y < sz.height; y++) {
+  // Compute: dst = 1.0f / sqrt(1.0f + (Lx.mul(Lx) + Ly.mul(Ly)) / (k * k))
 
-    const float* Lx_row = Lx.ptr<float>(y);
-    const float* Ly_row = Ly.ptr<float>(y);
-    float* dst_row = dst.ptr<float>(y);
+  const float inv_k2 = 1.0f / (k * k);
 
-    for (int x = 0; x < sz.width; x++) {
-      float den = sqrt(1.0f+inv_k*(Lx_row[x]*Lx_row[x] + Ly_row[x]*Ly_row[x]));
-      dst_row[x] = 1.0f / den;
-    }
-  }
+  const int total = Lx.rows * Lx.cols;
+  const float* lx = Lx.ptr<float>(0);
+  const float* ly = Ly.ptr<float>(0);
+  float* d = dst.ptr<float>(0);
+
+  for (int i = 0; i < total; i++)
+    d[i] = 1.0f / sqrtf(1.0f + inv_k2 * (lx[i]*lx[i] + ly[i]*ly[i]));
 }
 
 
@@ -302,31 +301,34 @@ void compute_scharr_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _k
     float w = 10.0f / 3.0f;
     float norm = 1.0f / (2.0f*scale*(w + 2.0f));
 
-    for (int k = 0; k < 2; k++) {
-        Mat* kernel = k == 0 ? &kx : &ky;
-        int order = k == 0 ? dx : dy;
-        std::vector<float> kerI(ksize, 0.0f);
+    std::vector<float> kerI(ksize, 0.0f);
 
-        if (order == 0) {
-            kerI[0] = norm, kerI[ksize / 2] = w*norm, kerI[ksize - 1] = norm;
-        }
-        else if (order == 1) {
-            kerI[0] = -1, kerI[ksize / 2] = 0, kerI[ksize - 1] = 1;
-        }
-
-        Mat temp(kernel->rows, kernel->cols, CV_32F, &kerI[0]);
-        temp.copyTo(*kernel);
+    if (dx == 0) {
+        kerI[0] = norm, kerI[ksize / 2] = w*norm, kerI[ksize - 1] = norm;
     }
+    else if (dx == 1) {
+        kerI[0] = -1, kerI[ksize / 2] = 0, kerI[ksize - 1] = 1;
+    }
+    Mat(kx.rows, kx.cols, CV_32F, &kerI[0]).copyTo(kx);
+
+    kerI.assign(ksize, 0.0f);
+
+    if (dy == 0) {
+        kerI[0] = norm, kerI[ksize / 2] = w*norm, kerI[ksize - 1] = norm;
+    }
+    else if (dy == 1) {
+        kerI[0] = -1, kerI[ksize / 2] = 0, kerI[ksize - 1] = 1;
+    }
+    Mat(ky.rows, ky.cols, CV_32F, &kerI[0]).copyTo(ky);
 }
 
 class Nld_Step_Scalar_InvokerV2 : public cv::ParallelLoopBody
 {
 public:
-    Nld_Step_Scalar_InvokerV2(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float _stepsize)
+    Nld_Step_Scalar_InvokerV2(const cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep)
         : _Ld(&Ld)
         , _c(&c)
         , _Lstep(&Lstep)
-        , stepsize(_stepsize)
     {
     }
 
@@ -337,7 +339,7 @@ public:
 
     void operator()(const cv::Range& range) const
     {
-        cv::Mat& Ld = *_Ld;
+        const cv::Mat& Ld = *_Ld;
         const cv::Mat& c = *_c;
         cv::Mat& Lstep = *_Lstep;
 
@@ -358,31 +360,30 @@ public:
                 float xneg = (c_curr[j-1] + c_curr[j])  *(ld_curr[j]   - ld_curr[j-1]);
                 float ypos = (c_curr[j]   + c_next[j])  *(ld_next[j]   - ld_curr[j]);
                 float yneg = (c_prev[j]   + c_curr[j])  *(ld_curr[j]   - ld_prev[j]);
-                dst[j] = 0.5f*stepsize*(xpos - xneg + ypos - yneg);
+                dst[j] = (xpos - xneg + ypos - yneg);
             }
         }
     }
 private:
-    cv::Mat * _Ld;
+    const cv::Mat * _Ld;
     const cv::Mat * _c;
     cv::Mat * _Lstep;
-    float stepsize;
 };
 
 /* ************************************************************************* */
 /**
-* @brief This function performs a scalar non-linear diffusion step
-* @param Ld2 Output image in the evolution
+* @brief This function computes a scalar non-linear diffusion step
+* @param Ld Base image in the evolution
 * @param c Conductivity image
-* @param Lstep Previous image in the evolution
-* @param stepsize The step size in time units
+* @param Lstep Output image that gives the difference between the current
+* Ld and the next Ld being evolved
 * @note Forward Euler Scheme 3x3 stencil
 * The function c is a scalar value that depends on the gradient norm
 * dL_by_ds = d(c dL_by_dx)_by_dx + d(c dL_by_dy)_by_dy
 */
-void nld_step_scalarV2(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float stepsize) {
+void nld_step_scalarV2(const cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep) {
 
-    cv::parallel_for_(cv::Range(1, Lstep.rows - 1), Nld_Step_Scalar_InvokerV2(Ld, c, Lstep, stepsize), (double)Ld.total()/(1 << 16));
+    cv::parallel_for_(cv::Range(1, Lstep.rows - 1), Nld_Step_Scalar_InvokerV2(Ld, c, Lstep), (double)Ld.total()/(1 << 16));
 
     float xneg, xpos, yneg, ypos;
     float* dst = Lstep.ptr<float>(0);
@@ -396,7 +397,7 @@ void nld_step_scalarV2(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float step
         xpos = (ccur[j]   + ccur[j+1]) * (ldcur[j+1] - ldcur[j]);
         xneg = (ccur[j-1] + ccur[j])   * (ldcur[j]   - ldcur[j-1]);
         ypos = (ccur[j]   + cnxt[j])   * (ldnxt[j]   - ldcur[j]);
-        dst[j] = 0.5f*stepsize*(xpos - xneg + ypos);
+        dst[j] = (xpos - xneg + ypos);
     }
 
     dst = Lstep.ptr<float>(Lstep.rows - 1);
@@ -409,7 +410,7 @@ void nld_step_scalarV2(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float step
         xpos = (ccur[j] + ccur[j+1]) * (ldcur[j+1] - ldcur[j]);
         xneg = (ccur[j-1] + ccur[j]) * (ldcur[j] - ldcur[j-1]);
         yneg = (cprv[j] + ccur[j])   * (ldcur[j] - ldprv[j]);
-        dst[j] = 0.5f*stepsize*(xpos - xneg - yneg);
+        dst[j] = (xpos - xneg - yneg);
     }
 
     ccur = c.ptr<float>(1);
@@ -428,19 +429,18 @@ void nld_step_scalarV2(cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep, float step
         xpos = (ccur[0] + ccur[1]) * (ldcur[1] - ldcur[0]);
         ypos = (ccur[0] + cnxt[0]) * (ldnxt[0] - ldcur[0]);
         yneg = (cprv[0] + ccur[0]) * (ldcur[0] - ldprv[0]);
-        dst[0] = 0.5f*stepsize*(xpos + ypos - yneg);
+        dst[0] = (xpos + ypos - yneg);
 
         xneg = (ccur[r1] + ccur[r0]) * (ldcur[r0] - ldcur[r1]);
         ypos = (ccur[r0] + cnxt[r0]) * (ldnxt[r0] - ldcur[r0]);
         yneg = (cprv[r0] + ccur[r0]) * (ldcur[r0] - ldprv[r0]);
-        dst[r0] = 0.5f*stepsize*(-xneg + ypos - yneg);
+        dst[r0] = (-xneg + ypos - yneg);
 
         cprv = ccur;
         ccur = cnxt;
         ldprv = ldcur;
         ldcur = ldnxt;
     }
-    Ld += Lstep;
 }
 
 /* ************************************************************************* */
