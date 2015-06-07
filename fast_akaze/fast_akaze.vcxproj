@@ -114,6 +114,7 @@
     <Text Include="..\perf_tests\R3 - Make AKAZEFeature persistent.txt" />
     <Text Include="..\perf_tests\R4 - Change Mat zeros to Mat create.txt" />
     <Text Include="..\perf_tests\R5 - Remove temporary variables on heap.txt" />
+    <Text Include="..\perf_tests\R6 - Optimize the memory copies.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

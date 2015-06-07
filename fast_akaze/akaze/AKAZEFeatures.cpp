@@ -100,6 +100,7 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
   }
 }
 
+
 /* ************************************************************************* */
 /**
  * @brief This method creates the nonlinear scale space for a given image
@@ -110,16 +111,33 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
 {
   CV_Assert(evolution_.size() > 0);
 
+  // Setup the gray-scale image
+  const Mat * gray = &img;
+  if (img.channels() != 1) {
+    cvtColor(img, gray_, COLOR_BGR2GRAY);
+    gray = & gray_;
+  }
+
+  if (gray->type() == CV_8UC1) {
+    gray->convertTo(evolution_[0].Lt, CV_32F, 1/255.0);
+    gray = &evolution_[0].Lt;
+  }
+  else if (gray->type() == CV_16UC1) {
+    gray->convertTo(evolution_[0].Lt, CV_32F, 1/65535.0);
+    gray = &evolution_[0].Lt;
+  }
+  CV_Assert(gray->type() == CV_32FC1);
+
+
   // First compute the kcontrast factor
-  gaussian_2D_convolutionV2(img, evolution_[0].Lsmooth, 0, 0, 1.0f);
+  gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, 1.0f);
   image_derivatives_scharrV2(evolution_[0].Lsmooth, evolution_[0].Lx, 1, 0);
   image_derivatives_scharrV2(evolution_[0].Lsmooth, evolution_[0].Ly, 0, 1);
   options_.kcontrast = compute_k_percentileV2(evolution_[0].Lx, evolution_[0].Ly, options_.kcontrast_percentile, histgram_);
 
   // Copy the original image to the first level of the evolution
-  img.copyTo(evolution_[0].Lt);
-  gaussian_2D_convolutionV2(evolution_[0].Lt, evolution_[0].Lt, 0, 0, options_.soffset);
-  evolution_[0].Lt.copyTo(evolution_[0].Lsmooth);
+  gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, options_.soffset);
+  evolution_[0].Lsmooth.copyTo(evolution_[0].Lt);
 
   // Prepare the flow and step images
   Mat Lflow(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lflow_.data);
@@ -140,9 +158,8 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
       evolution_[i - 1].Lt.copyTo(evolution_[i].Lt);
     }
 
-    gaussian_2D_convolutionV2(evolution_[i].Lt, evolution_[i].Lsmooth, 0, 0, 1.0f);
-
     // Compute the Gaussian derivatives Lx and Ly
+    gaussian_2D_convolutionV2(evolution_[i].Lt, evolution_[i].Lsmooth, 0, 0, 1.0f);
     image_derivatives_scharrV2(evolution_[i].Lsmooth, evolution_[i].Lx, 1, 0);
     image_derivatives_scharrV2(evolution_[i].Lsmooth, evolution_[i].Ly, 0, 1);
 
@@ -777,6 +794,7 @@ void AKAZEFeaturesV2::Compute_Descriptors(std::vector<KeyPoint>& kpts, Mat& desc
  * @note The orientation is computed using a similar approach as described in the
  * original SURF method. See Bay et al., Speeded Up Robust Features, ECCV 2006
  */
+inline
 void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<TEvolutionV2>& evolution_)
 {
     /* ************************************************************************* */

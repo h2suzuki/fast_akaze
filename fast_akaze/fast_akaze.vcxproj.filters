@@ -94,5 +94,8 @@
     <Text Include="..\perf_tests\R5 - Remove temporary variables on heap.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R6 - Optimize the memory copies.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>

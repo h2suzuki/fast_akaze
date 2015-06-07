@@ -66,7 +66,7 @@ inline void checkDescriptorLimitsV2(int &x, int &y, int width, int height) {
 
 /* ************************************************************************* */
 /**
- * @brief This funtion rounds float to nearest integer
+ * @brief This function rounds float to nearest integer
  * @param flt Input float
  * @return dst Nearest integer
  */
