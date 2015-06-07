@@ -13,6 +13,13 @@
 // Includes
 #include <vector>
 
+#define AKAZE_USE_CPP11_THREADING
+
+#ifdef AKAZE_USE_CPP11_THREADING
+#include <future>
+#include <atomic>
+#endif
+
 #include <opencv2/core.hpp>
 
 #include "AKAZEConfig.h"
@@ -45,6 +52,12 @@ private:
   cv::Mat histgram_, modgs_;
   std::vector<std::vector<cv::KeyPoint>> kpts_aux_;
 
+#ifdef AKAZE_USE_CPP11_THREADING
+  using task = std::future<void>;
+  std::vector<std::vector<task>> tasklist_;
+  std::vector<std::atomic_int> taskdeps_;
+#endif
+
 public:
 
   /// Constructor with input arguments
@@ -61,6 +74,7 @@ public:
   int Create_Nonlinear_Scale_Space(const cv::Mat& img);
   void Feature_Detection(std::vector<cv::KeyPoint>& kpts);
   void Compute_Determinant_Hessian_Response(void);
+  void Compute_Determinant_Hessian_Response_Single(void);
   void Compute_Multiscale_Derivatives(void);
   void Find_Scale_Space_Extrema(std::vector<std::vector<cv::KeyPoint>>& kpts_aux);
   void Do_Subpixel_Refinement(std::vector<std::vector<cv::KeyPoint>>& kpts_aux, std::vector<cv::KeyPoint>& kpts);

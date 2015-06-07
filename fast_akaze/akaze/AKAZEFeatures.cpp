@@ -18,6 +18,12 @@
 #include <cstdint>
 #include <iostream>
 
+#ifdef AKAZE_USE_CPP11_THREADING
+#include <thread>
+#include <future>
+#include <atomic>
+#endif
+
 // Taken from opencv2/internal.hpp: IEEE754 constants and macros
 #define  CV_TOGGLE_FLT(x) ((x)^((int)(x) < 0 ? 0x7fffffff : 0))
 
@@ -43,6 +49,10 @@ void generateDescriptorSubsampleV2(cv::Mat& sampleList, cv::Mat& comparisons, in
 AKAZEFeaturesV2::AKAZEFeaturesV2(const AKAZEOptionsV2& options) : options_(options) {
 
   cout << "AKAZEFeaturesV2 constructor called" << endl;
+
+#ifdef AKAZE_USE_CPP11_THREADING
+  cout << "hardware_concurrency: " << thread::hardware_concurrency() << endl;
+#endif
 
   reordering_ = true;
 
@@ -120,6 +130,15 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
     fed_tau_by_process_timeV2(evolution_[i].etime - evolution_[i - 1].etime,
                               1, 0.25f, reordering_, tsteps_[i - 1]);
   }
+
+#ifdef AKAZE_USE_CPP11_THREADING
+  tasklist_.resize(2);
+  for (auto &list: tasklist_)
+    list.resize(evolution_.size());
+
+  taskdeps_.resize(evolution_.size());
+#endif
+
 }
 
 
@@ -239,10 +258,11 @@ void AKAZEFeaturesV2::Feature_Detection(std::vector<KeyPoint>& kpts)
  * @brief This method computes the feature detector response for the nonlinear scale space
  * @note We use the Hessian determinant as the feature detector response
  */
-void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
+inline
+void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response_Single(void) {
 
-    for (size_t i = 0; i < evolution_.size(); i++)
-    {
+  for (size_t i = 0; i < evolution_.size(); i++)
+  {
       TEvolutionV2 &e = evolution_[i];
 
       const int total = e.Lsmooth.cols * e.Lsmooth.rows;
@@ -274,8 +294,95 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
       // Compute Ldet by Lxx.mul(Lyy) - Lxy.mul(Lxy)
       for (int j = 0; j < total; j++)
         ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
-    }
+  }
 }
+
+#ifdef AKAZE_USE_CPP11_THREADING
+
+/* ************************************************************************* */
+/**
+ * @brief This method computes the feature detector response for the nonlinear scale space
+ * @note This is parallelized version of Compute_Determinant_Hessian_Response_Single()
+ */
+void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
+
+  if (getNumThreads() == 1) {
+    Compute_Determinant_Hessian_Response_Single();
+    return;
+  }
+
+  for (auto &dep : taskdeps_)
+    atomic_init(&dep, 0);
+
+  for (size_t i = 0; i < evolution_.size(); i++)
+  {
+    TEvolutionV2 &e = evolution_[i];
+    atomic_int &dep = taskdeps_[i];
+
+    const int total = e.Lsmooth.cols * e.Lsmooth.rows;
+    const float sigma_size = (float)e.sigma_size;
+
+    float *lx = e.Lx.ptr<float>(0);
+    float *lxx = e.Lxx.ptr<float>(0);
+    float *ly = e.Ly.ptr<float>(0);
+    float *lyy = e.Lyy.ptr<float>(0);
+    float *lxy = e.Lxy.ptr<float>(0);
+    float *ldet = e.Ldet.ptr<float>(0);
+
+    tasklist_[0][i] = async([=, &e, &dep]{
+
+      sepFilter2D(e.Lsmooth, e.Ly, CV_32F, e.DyKx, e.DyKy);
+      for (int j = 0; j < total; j++) ly[j] *= sigma_size;
+
+      sepFilter2D(e.Ly, e.Lyy, CV_32F, e.DyKx, e.DyKy);
+      for (int j = 0; j < total; j++) lyy[j] *= sigma_size;
+
+      if (dep.fetch_add(1, memory_order_relaxed) != 1)
+        return; // The other dependency is not ready
+
+      sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
+      for (int j = 0; j < total; j++) {
+        lxy[j] *= sigma_size;
+        ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
+      }
+
+    });
+
+    tasklist_[1][i] = async([=, &e, &dep]{
+
+      sepFilter2D(e.Lsmooth, e.Lx, CV_32F, e.DxKx, e.DxKy);
+      for (int j = 0; j < total; j++) lx[j] *= sigma_size;
+
+      sepFilter2D(e.Lx, e.Lxx, CV_32F, e.DxKx, e.DxKy);
+      for (int j = 0; j < total; j++) lxx[j] *= sigma_size;
+
+      if (dep.fetch_add(1, memory_order_relaxed) != 1)
+        return; // The other dependency is not ready
+
+      sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
+      for (int j = 0; j < total; j++) {
+        lxy[j] *= sigma_size;
+        ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
+      }
+
+    });
+  }
+
+  // Wait till all running tasks finish
+  for (size_t i = 0; i < evolution_.size(); i++)
+  {
+      tasklist_[0][i].get();
+      tasklist_[1][i].get();
+  }
+}
+
+#else
+
+void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
+    Compute_Determinant_Hessian_Response_Single();
+}
+
+#endif
 
 /* ************************************************************************* */
 /**
