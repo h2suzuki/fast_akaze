@@ -124,5 +124,8 @@
     <Text Include="..\perf_tests\R8.8 - Refactor compute_k_percentile (revisited).txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R9.1 - Remove OpenMP spin wait.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>

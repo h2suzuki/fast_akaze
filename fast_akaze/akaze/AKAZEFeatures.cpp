@@ -731,7 +731,7 @@ void AKAZEFeaturesV2::Compute_Descriptors(std::vector<KeyPoint>& kpts, Mat& desc
       CV_Assert(0 <= kpts[i].class_id && kpts[i].class_id < static_cast<int>(evolution_.size()));
   }
 
-  // Allocate memory for the matrix with the descriptors
+  // Allocate memory for the descriptor matrix
   if (options_.descriptor < AKAZE::DESCRIPTOR_MLDB_UPRIGHT) {
     desc.create((int)kpts.size(), 64, CV_32FC1);
   }
@@ -747,32 +747,34 @@ void AKAZEFeaturesV2::Compute_Descriptors(std::vector<KeyPoint>& kpts, Mat& desc
     }
   }
 
+  const double stride = kpts.size() / (double)(1<<9); // a set of kpts are split to the chunks of approx. 1^9 kpts size
+
   switch (options_.descriptor)
   {
     case AKAZE::DESCRIPTOR_KAZE_UPRIGHT: // Upright descriptors, not invariant to rotation
     {
-      parallel_for_(Range(0, (int)kpts.size()), MSURF_Upright_Descriptor_64_InvokerV2(kpts, desc, evolution_));
+      parallel_for_(Range(0, (int)kpts.size()), MSURF_Upright_Descriptor_64_InvokerV2(kpts, desc, evolution_), stride);
     }
     break;
     case AKAZE::DESCRIPTOR_KAZE:
     {
-      parallel_for_(Range(0, (int)kpts.size()), MSURF_Descriptor_64_InvokerV2(kpts, desc, evolution_));
+      parallel_for_(Range(0, (int)kpts.size()), MSURF_Descriptor_64_InvokerV2(kpts, desc, evolution_), stride);
     }
     break;
     case AKAZE::DESCRIPTOR_MLDB_UPRIGHT: // Upright descriptors, not invariant to rotation
     {
       if (options_.descriptor_size == 0)
-        parallel_for_(Range(0, (int)kpts.size()), Upright_MLDB_Full_Descriptor_InvokerV2(kpts, desc, evolution_, options_));
+        parallel_for_(Range(0, (int)kpts.size()), Upright_MLDB_Full_Descriptor_InvokerV2(kpts, desc, evolution_, options_), stride);
       else
-        parallel_for_(Range(0, (int)kpts.size()), Upright_MLDB_Descriptor_Subset_InvokerV2(kpts, desc, evolution_, options_, descriptorSamples_, descriptorBits_));
+        parallel_for_(Range(0, (int)kpts.size()), Upright_MLDB_Descriptor_Subset_InvokerV2(kpts, desc, evolution_, options_, descriptorSamples_, descriptorBits_), stride);
     }
     break;
     case AKAZE::DESCRIPTOR_MLDB:
     {
       if (options_.descriptor_size == 0)
-        parallel_for_(Range(0, (int)kpts.size()), MLDB_Full_Descriptor_InvokerV2(kpts, desc, evolution_, options_));
+        parallel_for_(Range(0, (int)kpts.size()), MLDB_Full_Descriptor_InvokerV2(kpts, desc, evolution_, options_), stride);
       else
-        parallel_for_(Range(0, (int)kpts.size()), MLDB_Descriptor_Subset_InvokerV2(kpts, desc, evolution_, options_, descriptorSamples_, descriptorBits_));
+        parallel_for_(Range(0, (int)kpts.size()), MLDB_Descriptor_Subset_InvokerV2(kpts, desc, evolution_, options_, descriptorSamples_, descriptorBits_), stride);
     }
     break;
   }
