@@ -126,6 +126,7 @@
     <Text Include="..\perf_tests\R8.8 - Refactor compute_k_percentile (revisited).txt" />
     <Text Include="..\perf_tests\R9.1 - Remove OpenMP spin wait.txt" />
     <Text Include="..\perf_tests\R9.2 - Parallelize Compute_Determinant_Hessian_Response.txt" />
+    <Text Include="..\perf_tests\R9.3 - Parallelize Create_Nonlinear_Scale_Space.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -115,6 +115,8 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
   }
 
   // Allocate memory for workspaces
+  lx_.create(options_.img_height, options_.img_width, CV_32FC1);
+  ly_.create(options_.img_height, options_.img_width, CV_32FC1);
   lflow_.create(options_.img_height, options_.img_width, CV_32FC1);
   lstep_.create(options_.img_height, options_.img_width, CV_32FC1);
   histgram_.create(1, options_.kcontrast_nbins, CV_32SC1);
@@ -141,6 +143,83 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
 
 }
 
+/* ************************************************************************* */
+/**
+ * @brief This function wraps the parallel computation of Scharr derivatives.
+ * @param Lsmooth Input image to compute Scharr derivatives.
+ * @param Lx Output derivative image (horizontal)
+ * @param Ly Output derivative image (vertical)
+ * should be parallelized or not.
+ */
+static inline
+void image_derivatives(const cv::Mat& Lsmooth, cv::Mat& Lx, cv::Mat& Ly)
+{
+#ifdef AKAZE_USE_CPP11_THREADING
+
+  int n = (Lsmooth.rows * Lsmooth.cols) / (1 << 15) + 1;
+
+  if (getNumThreads() > 1 && n > 1) {
+    auto task = async(launch::async, image_derivatives_scharrV2, Lsmooth, Lx, 1, 0);
+
+    image_derivatives_scharrV2(Lsmooth, Ly, 0, 1);
+    task.get();
+    return;
+  }
+
+#else
+
+  image_derivatives_scharrV2(Lsmooth, Lx, 1, 0);
+  image_derivatives_scharrV2(Lsmooth, Ly, 0, 1);
+
+#endif
+}
+
+
+/* ************************************************************************* */
+/**
+ * @brief This method compute the first evolution step of the nonlinear scale space
+ * @param img Input image for which the nonlinear scale space needs to be created
+ * @return kcontrast factor
+ */
+float AKAZEFeaturesV2::Compute_Base_Evolution_Level(const cv::Mat& img)
+{
+  Mat Lsmooth(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lflow_.data /* like-a-union */);
+  Mat Lx(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lx_.data);
+  Mat Ly(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, ly_.data);
+
+#ifdef AKAZE_USE_CPP11_THREADING
+
+  if (getNumThreads() > 2 && (img.rows * img.cols) > (1 << 16)) {
+
+    auto e0_Lsmooth = async(launch::async, gaussian_2D_convolutionV2, img, evolution_[0].Lsmooth, 0, 0, options_.soffset);
+
+    gaussian_2D_convolutionV2(img, Lsmooth, 0, 0, 1.0f);
+    image_derivatives(Lsmooth, Lx, Ly);
+    kcontrast_ = async(launch::async, compute_k_percentileV2, Lx, Ly, options_.kcontrast_percentile, modgs_, histgram_);
+
+    e0_Lsmooth.get();
+    Compute_Determinant_Hessian_Response(0);
+
+    evolution_[0].Lsmooth.copyTo(evolution_[0].Lt);
+    return 1.0f;
+  }
+
+#endif
+
+  // Compute the determinant Hessian
+  gaussian_2D_convolutionV2(img, evolution_[0].Lsmooth, 0, 0, options_.soffset);
+  Compute_Determinant_Hessian_Response(0);
+
+  // Compute the kcontrast factor using local variables
+  gaussian_2D_convolutionV2(img, Lsmooth, 0, 0, 1.0f);
+  image_derivatives(Lsmooth, Lx, Ly);
+  float kcontrast = compute_k_percentileV2(Lx, Ly, options_.kcontrast_percentile, modgs_, histgram_);
+
+  // Copy the smoothed original image to the first level of the evolution Lt
+  evolution_[0].Lsmooth.copyTo(evolution_[0].Lt);
+
+  return kcontrast;
+}
 
 /* ************************************************************************* */
 /**
@@ -170,17 +249,21 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
   CV_Assert(gray->type() == CV_32FC1);
 
 
-  // First compute the kcontrast factor
-  gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, 1.0f);
-  image_derivatives_scharrV2(evolution_[0].Lsmooth, evolution_[0].Lx, 1, 0);
-  image_derivatives_scharrV2(evolution_[0].Lsmooth, evolution_[0].Ly, 0, 1);
-  float kcontrast = compute_k_percentileV2(evolution_[0].Lx, evolution_[0].Ly, options_.kcontrast_percentile, modgs_, histgram_);
+  // Handle the trivial case
+  if (evolution_.size() == 1) {
+    gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, options_.soffset);
+    evolution_[0].Lsmooth.copyTo(evolution_[0].Lt);
+    Compute_Determinant_Hessian_Response_Single(0);
+    return 0;
+  }
 
-  // Copy the original image to the first level of the evolution
-  gaussian_2D_convolutionV2(*gray, evolution_[0].Lsmooth, 0, 0, options_.soffset);
-  evolution_[0].Lsmooth.copyTo(evolution_[0].Lt);
 
-  // Prepare the flow and step images
+  // First compute Lsmooth, Hessian, and the kcontrast factor for the base evolution level
+  float kcontrast = Compute_Base_Evolution_Level(*gray);
+
+  // Prepare Mats to be used as local workspace
+  Mat Lx(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lx_.data);
+  Mat Ly(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, ly_.data);
   Mat Lflow(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lflow_.data);
   Mat Lstep(evolution_[0].Lt.rows, evolution_[0].Lt.cols, CV_32FC1, lstep_.data);
 
@@ -191,7 +274,9 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
       halfsample_imageV2(evolution_[i - 1].Lt, evolution_[i].Lt);
       kcontrast = kcontrast*0.75f;
 
-      // Resize the flow and step images to fit Lt
+      // Resize the workspace images to fit Lt
+      Lx = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, lx_.data);
+      Ly = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, ly_.data);
       Lflow = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, lflow_.data);
       Lstep = cv::Mat(evolution_[i].Lt.rows, evolution_[i].Lt.cols, CV_32FC1, lstep_.data);
     }
@@ -199,36 +284,44 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
       evolution_[i - 1].Lt.copyTo(evolution_[i].Lt);
     }
 
-    // Compute the Gaussian derivatives Lx and Ly
     gaussian_2D_convolutionV2(evolution_[i].Lt, evolution_[i].Lsmooth, 0, 0, 1.0f);
-    image_derivatives_scharrV2(evolution_[i].Lsmooth, evolution_[i].Lx, 1, 0);
-    image_derivatives_scharrV2(evolution_[i].Lsmooth, evolution_[i].Ly, 0, 1);
 
-    // Compute the conductivity equation
+#ifdef AKAZE_USE_CPP11_THREADING
+    if (kcontrast_.valid())
+      kcontrast *= kcontrast_.get();  /* Join the kcontrast task so Lx and Ly can be reused */
+#endif
+
+    // Compute the Gaussian derivatives Lx and Ly
+    image_derivatives(evolution_[i].Lsmooth, Lx, Ly);
+
+    // Compute the Hessian for feature detection
+    Compute_Determinant_Hessian_Response((int)i);
+
+    // Compute the conductivity equation Lflow
     switch (options_.diffusivity) {
       case KAZE::DIFF_PM_G1:
-        pm_g1V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
+        pm_g1V2(Lx, Ly, Lflow, kcontrast);
       break;
       case KAZE::DIFF_PM_G2:
-        pm_g2V2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
+        pm_g2V2(Lx, Ly, Lflow, kcontrast);
       break;
       case KAZE::DIFF_WEICKERT:
-        weickert_diffusivityV2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
+        weickert_diffusivityV2(Lx, Ly, Lflow, kcontrast);
       break;
       case KAZE::DIFF_CHARBONNIER:
-        charbonnier_diffusivityV2(evolution_[i].Lx, evolution_[i].Ly, Lflow, kcontrast);
+        charbonnier_diffusivityV2(Lx, Ly, Lflow, kcontrast);
       break;
       default:
         CV_Error(options_.diffusivity, "Diffusivity is not supported");
       break;
     }
 
+    // Perform Fast Explicit Diffusion on Lt
     const int total = Lstep.rows * Lstep.cols;
     float * lt = evolution_[i].Lt.ptr<float>(0);
     float * lstep = Lstep.ptr<float>(0);
     std::vector<float> & tsteps = tsteps_[i - 1];
 
-    // Perform FED n inner steps
     for (int j = 0; j < tsteps.size(); j++) {
       nld_step_scalarV2(evolution_[i].Lt, Lflow, Lstep);
 
@@ -237,6 +330,20 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
         lt[k] += lstep[k] * 0.5f * step_size;
     }
   }
+
+#ifdef AKAZE_USE_CPP11_THREADING
+
+  if (getNumThreads() > 1) {
+
+    // Wait all background tasks to finish
+    for (size_t i = 0; i < evolution_.size(); i++)
+    {
+      tasklist_[0][i].get();
+      tasklist_[1][i].get();
+    }
+  }
+
+#endif
 
   return 0;
 }
@@ -248,7 +355,6 @@ int AKAZEFeaturesV2::Create_Nonlinear_Scale_Space(const Mat& img)
  */
 void AKAZEFeaturesV2::Feature_Detection(std::vector<KeyPoint>& kpts)
 {
-  Compute_Determinant_Hessian_Response();
   Find_Scale_Space_Extrema(kpts_aux_);
   Do_Subpixel_Refinement(kpts_aux_, kpts);
 }
@@ -256,45 +362,43 @@ void AKAZEFeaturesV2::Feature_Detection(std::vector<KeyPoint>& kpts)
 /* ************************************************************************* */
 /**
  * @brief This method computes the feature detector response for the nonlinear scale space
+ * @param level The evolution level to compute Hessian determinant
  * @note We use the Hessian determinant as the feature detector response
  */
 inline
-void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response_Single(void) {
+void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response_Single(const int level) {
 
-  for (size_t i = 0; i < evolution_.size(); i++)
-  {
-      TEvolutionV2 &e = evolution_[i];
+  TEvolutionV2 &e = evolution_[level];
 
-      const int total = e.Lsmooth.cols * e.Lsmooth.rows;
-      const float sigma_size = (float)e.sigma_size;
+  const int total = e.Lsmooth.cols * e.Lsmooth.rows;
+  const float sigma_size = (float)e.sigma_size;
 
-      float *lx = e.Lx.ptr<float>(0);
-      float *ly = e.Ly.ptr<float>(0);
-      float *lxx = e.Lxx.ptr<float>(0);
-      float *lxy = e.Lxy.ptr<float>(0);
-      float *lyy = e.Lyy.ptr<float>(0);
-      float *ldet = e.Ldet.ptr<float>(0);
+  float *lx = e.Lx.ptr<float>(0);
+  float *ly = e.Ly.ptr<float>(0);
+  float *lxx = e.Lxx.ptr<float>(0);
+  float *lxy = e.Lxy.ptr<float>(0);
+  float *lyy = e.Lyy.ptr<float>(0);
+  float *ldet = e.Ldet.ptr<float>(0);
 
-      // Firstly compute the multiscale derivatives
-      sepFilter2D(e.Lsmooth, e.Lx, CV_32F, e.DxKx, e.DxKy);
-      for (int j = 0; j < total; j++) lx[j] *= sigma_size;
+  // Firstly compute the multiscale derivatives
+  sepFilter2D(e.Lsmooth, e.Lx, CV_32F, e.DxKx, e.DxKy);
+  for (int j = 0; j < total; j++) lx[j] *= sigma_size;
 
-      sepFilter2D(e.Lx, e.Lxx, CV_32F, e.DxKx, e.DxKy);
-      for (int j = 0; j < total; j++) lxx[j] *= sigma_size;
+  sepFilter2D(e.Lx, e.Lxx, CV_32F, e.DxKx, e.DxKy);
+  for (int j = 0; j < total; j++) lxx[j] *= sigma_size;
 
-      sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
-      for (int j = 0; j < total; j++) lxy[j] *= sigma_size;
+  sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
+  for (int j = 0; j < total; j++) lxy[j] *= sigma_size;
 
-      sepFilter2D(e.Lsmooth, e.Ly, CV_32F, e.DyKx, e.DyKy);
-      for (int j = 0; j < total; j++) ly[j] *= sigma_size;
+  sepFilter2D(e.Lsmooth, e.Ly, CV_32F, e.DyKx, e.DyKy);
+  for (int j = 0; j < total; j++) ly[j] *= sigma_size;
 
-      sepFilter2D(e.Ly, e.Lyy, CV_32F, e.DyKx, e.DyKy);
-      for (int j = 0; j < total; j++) lyy[j] *= sigma_size;
+  sepFilter2D(e.Ly, e.Lyy, CV_32F, e.DyKx, e.DyKy);
+  for (int j = 0; j < total; j++) lyy[j] *= sigma_size;
 
-      // Compute Ldet by Lxx.mul(Lyy) - Lxy.mul(Lxy)
-      for (int j = 0; j < total; j++)
-        ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
-  }
+  // Compute Ldet by Lxx.mul(Lyy) - Lxy.mul(Lxy)
+  for (int j = 0; j < total; j++)
+    ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
 }
 
 #ifdef AKAZE_USE_CPP11_THREADING
@@ -302,84 +406,76 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response_Single(void) {
 /* ************************************************************************* */
 /**
  * @brief This method computes the feature detector response for the nonlinear scale space
+ * @param level The evolution level to compute Hessian determinant
  * @note This is parallelized version of Compute_Determinant_Hessian_Response_Single()
  */
-void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
+void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(const int level) {
 
   if (getNumThreads() == 1) {
-    Compute_Determinant_Hessian_Response_Single();
+    Compute_Determinant_Hessian_Response_Single(level);
     return;
   }
 
-  for (auto &dep : taskdeps_)
-    atomic_init(&dep, 0);
+  TEvolutionV2 &e = evolution_[level];
+  atomic_int &dep = taskdeps_[level];
 
-  for (size_t i = 0; i < evolution_.size(); i++)
-  {
-    TEvolutionV2 &e = evolution_[i];
-    atomic_int &dep = taskdeps_[i];
+  const int total = e.Lsmooth.cols * e.Lsmooth.rows;
+  const float sigma_size = (float)e.sigma_size;
 
-    const int total = e.Lsmooth.cols * e.Lsmooth.rows;
-    const float sigma_size = (float)e.sigma_size;
+  float *lx = e.Lx.ptr<float>(0);
+  float *lxx = e.Lxx.ptr<float>(0);
+  float *ly = e.Ly.ptr<float>(0);
+  float *lyy = e.Lyy.ptr<float>(0);
+  float *lxy = e.Lxy.ptr<float>(0);
+  float *ldet = e.Ldet.ptr<float>(0);
 
-    float *lx = e.Lx.ptr<float>(0);
-    float *lxx = e.Lxx.ptr<float>(0);
-    float *ly = e.Ly.ptr<float>(0);
-    float *lyy = e.Lyy.ptr<float>(0);
-    float *lxy = e.Lxy.ptr<float>(0);
-    float *ldet = e.Ldet.ptr<float>(0);
+  atomic_init(&dep, 0);
 
-    tasklist_[0][i] = async([=, &e, &dep]{
+  tasklist_[0][level] = async([=, &e, &dep]{
 
-      sepFilter2D(e.Lsmooth, e.Ly, CV_32F, e.DyKx, e.DyKy);
-      for (int j = 0; j < total; j++) ly[j] *= sigma_size;
+    sepFilter2D(e.Lsmooth, e.Ly, CV_32F, e.DyKx, e.DyKy);
+    for (int j = 0; j < total; j++) ly[j] *= sigma_size;
 
-      sepFilter2D(e.Ly, e.Lyy, CV_32F, e.DyKx, e.DyKy);
-      for (int j = 0; j < total; j++) lyy[j] *= sigma_size;
+    sepFilter2D(e.Ly, e.Lyy, CV_32F, e.DyKx, e.DyKy);
+    for (int j = 0; j < total; j++) lyy[j] *= sigma_size;
 
-      if (dep.fetch_add(1, memory_order_relaxed) != 1)
-        return; // The other dependency is not ready
+    if (dep.fetch_add(1, memory_order_relaxed) != 1)
+      return; // The other dependency is not ready
 
-      sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
-      for (int j = 0; j < total; j++) {
-        lxy[j] *= sigma_size;
-        ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
-      }
+    sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
+    for (int j = 0; j < total; j++) {
+      lxy[j] *= sigma_size;
+      ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
+    }
 
-    });
+  });
 
-    tasklist_[1][i] = async([=, &e, &dep]{
+  tasklist_[1][level] = async([=, &e, &dep]{
 
-      sepFilter2D(e.Lsmooth, e.Lx, CV_32F, e.DxKx, e.DxKy);
-      for (int j = 0; j < total; j++) lx[j] *= sigma_size;
+    sepFilter2D(e.Lsmooth, e.Lx, CV_32F, e.DxKx, e.DxKy);
+    for (int j = 0; j < total; j++) lx[j] *= sigma_size;
 
-      sepFilter2D(e.Lx, e.Lxx, CV_32F, e.DxKx, e.DxKy);
-      for (int j = 0; j < total; j++) lxx[j] *= sigma_size;
+    sepFilter2D(e.Lx, e.Lxx, CV_32F, e.DxKx, e.DxKy);
+    for (int j = 0; j < total; j++) lxx[j] *= sigma_size;
 
-      if (dep.fetch_add(1, memory_order_relaxed) != 1)
-        return; // The other dependency is not ready
+    if (dep.fetch_add(1, memory_order_relaxed) != 1)
+      return; // The other dependency is not ready
 
-      sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
-      for (int j = 0; j < total; j++) {
-        lxy[j] *= sigma_size;
-        ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
-      }
+    sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
+    for (int j = 0; j < total; j++) {
+      lxy[j] *= sigma_size;
+      ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
+    }
 
-    });
-  }
+  });
 
-  // Wait till all running tasks finish
-  for (size_t i = 0; i < evolution_.size(); i++)
-  {
-      tasklist_[0][i].get();
-      tasklist_[1][i].get();
-  }
+  // tasklist_[1,2][level] have to be waited later on
 }
 
 #else
 
-void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
-    Compute_Determinant_Hessian_Response_Single();
+void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(const int level) {
+    Compute_Determinant_Hessian_Response_Single(level);
 }
 
 #endif

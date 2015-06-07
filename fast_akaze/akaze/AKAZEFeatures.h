@@ -47,7 +47,7 @@ private:
   cv::Mat bitMask_;
 
   /// Preallocated temporary variables
-  cv::Mat gray_;
+  cv::Mat gray_, lx_, ly_;
   cv::Mat lflow_, lstep_;
   cv::Mat histgram_, modgs_;
   std::vector<std::vector<cv::KeyPoint>> kpts_aux_;
@@ -56,6 +56,7 @@ private:
   using task = std::future<void>;
   std::vector<std::vector<task>> tasklist_;
   std::vector<std::atomic_int> taskdeps_;
+  std::future<float> kcontrast_;
 #endif
 
 public:
@@ -72,9 +73,10 @@ public:
   /// Scale Space methods
   void Allocate_Memory_Evolution();
   int Create_Nonlinear_Scale_Space(const cv::Mat& img);
+  float Compute_Base_Evolution_Level(const cv::Mat& img);
   void Feature_Detection(std::vector<cv::KeyPoint>& kpts);
-  void Compute_Determinant_Hessian_Response(void);
-  void Compute_Determinant_Hessian_Response_Single(void);
+  void Compute_Determinant_Hessian_Response(const int level);
+  void Compute_Determinant_Hessian_Response_Single(const int level);
   void Compute_Multiscale_Derivatives(void);
   void Find_Scale_Space_Extrema(std::vector<std::vector<cv::KeyPoint>>& kpts_aux);
   void Do_Subpixel_Refinement(std::vector<std::vector<cv::KeyPoint>>& kpts_aux, std::vector<cv::KeyPoint>& kpts);

@@ -417,7 +417,7 @@ void nld_step_scalarV2(const cv::Mat& Ld, const cv::Mat& c, cv::Mat& Lstep)
 /* ************************************************************************* */
 /**
 * @brief This function downsamples the input image using OpenCV resize
-* @param img Input image to be downsampled
+* @param src Input image to be downsampled
 * @param dst Output image with half of the resolution of the input image
 */
 void halfsample_imageV2(const cv::Mat& src, cv::Mat& dst) {

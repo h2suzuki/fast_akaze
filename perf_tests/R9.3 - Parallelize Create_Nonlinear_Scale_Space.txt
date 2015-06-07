@@ -1,0 +1,198 @@
+R9.3: Parallelize Create_Nonlinear_Scale_Space - May 26, 2015
+
+Description:
+  This optimization includes four changes to Create_Nonlinear_Scale_Space().
+
+    1. Compute two image derivatives Lx and Ly in parallel
+    2. Compute the Hessian in parallel to Create_Nonlinear_Scale_Space()
+    3. Compute the kcontrast factor in parallel to the second evolution step
+    4. Eliminate the temporary usage of TEvolution::Lx and Ly
+       by introducing the local variables lx_ and ly_
+
+  The fourth change relaxes the variable contention between Hessian and Lflow.
+  Hence, Compute_Determinant_Hessian_Response() can run almost independently
+  against Create_Nonlinear_Scale_Space().
+
+  Using lx_ and ly_ also improves the spatial locality of memory access,
+  because the same memory area is used again and again during the loop.
+  
+  Computing the Hessian and Lt of the same evolution step at the same time
+  improves the temporal locality of memory access, too, because the same
+  Gaussian blur image is fed to both of them, and that input image most
+  likely exists on cache --- it's freshly generated right before them.
+
+
+  The design of task concurrency and data flow:
+
+  --> CPU Time
+
+            | <--------- Compute_Base_Evolution_Level ------------> | <------------------------------------- Computation of evolution_[1] -----------------------------------------> | <--- (repeat) --...
+     +------+-----------------+-----------+-----+-------------------+-------------------+-------------------------+---+----------------+---------------------------+------------...--+
+ t0: |      | GaussianBlur    | Scharr    |     | copyTo            | copyTo            | GaussianBlur            |   | Scharr         | pm_g2                     | FED             |
+     | gray | gray > Ls(1.0f) | Ls > Ly   | get | e[0].Ls > e[0].Lt | e[0].Lt > e[1].Lt | e[1].Lt > e[1].Ls(1.0f) |get| e[1].Ls > Ly   | Lx, Ly, kcontrast > Lflow | Lflow > e[1].Lt |
+     +------+-----------------+-----------+-----+-------------------+-------------------+-------------------------+---+----------------+---------------------------+------------...--+
+            |                 |         ^ |  ^  |                                                                   ^ |              ^ |
+            |                 v         | v  |  |                                                           +-------+ v              | v
+            |                 +---------+ +------------------------------------------------------------...--+         +--------------+ +--------------------------------...--+
+ t1:        |                 | Scharr  | | compute_k_percentile                                            |         | Scharr       | | Hessian Part 1                      |
+            |                 | Ls > Lx | | Lx, Ly > kcontrast                                              |         | e[1].Ls > Lx | | e[1].Ls > e[1].Lx, e[1].Lxx         |
+            |                 +---------+ +------------------------------------------------------------...--+         +--------------+ +--------------------------------...--+
+            |                                |  |                                                                                      |
+            v                         +------+  v                                                                                      |
+            +-------------------------+         +--------------------------------------------------------------------...--+            +---------------------------------------------...--+
+ t2:        | GaussianBlur            |         | Hessian Part1                                                           |            | Hessian Part 2                                   |
+            | gray > e[0].Ls(soffset) |         | e[0].Ls > e[0].Lx, e[0].Lxx                                             |            | e[1].Ls > e[1].Ly, e[1].Lyy, e[1].Lxy, e[1].Ldet |
+            +-------------------------+         +--------------------------------------------------------------------...--+            +---------------------------------------------...--+
+                                                +----------------------------------------------------------------------------------------------------...--+
+ t3:                                            | Hessian Part2                                                                                           |
+                                                | e[0].Ls > e[0].Ly, e[0].Lyy, e[0].Lxy, e[0].Ldet                                                        |
+                                                +----------------------------------------------------------------------------------------------------...--+
+
+      Where:
+       - t0 to t3 are the concurrency entities such as tasks
+       - Ls(sigma) means Lsmooth of Gaussian blur with sigma
+       - e[i] means evolution_[i]
+       - | A > B | means to generate B out of A
+
+
+a. Debug configuration, 64-bit build, single thread
+
+AKAZE2: Last 255.014ms 3.921fps | Int 5035ms 20fr 3.972fps | EMA 3.951fps
+AKAZE2: Last 256.014ms 3.906fps | Int 5067ms 20fr 3.947fps | EMA 3.950fps
+AKAZE2: Last 252.014ms 3.968fps | Int 5053ms 20fr 3.958fps | EMA 3.951fps
+AKAZE2: Last 250.014ms 4.000fps | Int 5041ms 20fr 3.967fps | EMA 3.955fps
+AKAZE2: Last 251.014ms 3.984fps | Int 5042ms 20fr 3.966fps | EMA 3.957fps
+AKAZE2: Last 252.014ms 3.968fps | Int 5055ms 20fr 3.956fps | EMA 3.957fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5051ms 20fr 3.959fps | EMA 3.957fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5033ms 20fr 3.974fps | EMA 3.961fps
+AKAZE2: Last 251.014ms 3.984fps | Int 5052ms 20fr 3.959fps | EMA 3.960fps
+AKAZE2: Last 253.014ms 3.952fps | Int 5040ms 20fr 3.968fps | EMA 3.962fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5033ms 20fr 3.974fps | EMA 3.964fps
+AKAZE2: Last 251.014ms 3.984fps | Int 5040ms 20fr 3.968fps | EMA 3.965fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5047ms 20fr 3.963fps | EMA 3.964fps
+AKAZE2: Last 251.014ms 3.984fps | Int 5060ms 20fr 3.952fps | EMA 3.962fps
+AKAZE2: Last 251.014ms 3.984fps | Int 5032ms 20fr 3.974fps | EMA 3.964fps
+AKAZE2: Last 248.014ms 4.032fps | Int 5015ms 20fr 3.988fps | EMA 3.969fps
+AKAZE2: Last 253.014ms 3.952fps | Int 5030ms 20fr 3.976fps | EMA 3.970fps
+AKAZE2: Last 250.014ms 4.000fps | Int 5020ms 20fr 3.984fps | EMA 3.973fps
+AKAZE2: Last 250.014ms 4.000fps | Int 5019ms 20fr 3.985fps | EMA 3.975fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5048ms 20fr 3.962fps | EMA 3.973fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5025ms 20fr 3.980fps | EMA 3.974fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5018ms 20fr 3.985fps | EMA 3.976fps
+AKAZE2: Last 249.014ms 4.016fps | Int 5025ms 20fr 3.980fps | EMA 3.977fps
+AKAZE2: Last 254.014ms 3.937fps | Int 5029ms 20fr 3.977fps | EMA 3.977fps
+
+
+b. Debug configuration, 64-bit build, eight threads; OPENCV_THREAD_COUNT==8
+
+AKAZE2: Last 134.007ms 7.462fps | Int 5113ms 38fr 7.432fps | EMA 7.378fps
+AKAZE2: Last 137.007ms 7.299fps | Int 5105ms 38fr 7.443fps | EMA 7.391fps
+AKAZE2: Last 134.007ms 7.462fps | Int 5117ms 38fr 7.426fps | EMA 7.398fps
+AKAZE2: Last 137.007ms 7.299fps | Int 5006ms 37fr 7.391fps | EMA 7.397fps
+AKAZE2: Last 135.007ms 7.407fps | Int 5039ms 37fr 7.342fps | EMA 7.386fps
+AKAZE2: Last 138.007ms 7.246fps | Int 5019ms 37fr 7.372fps | EMA 7.383fps
+AKAZE2: Last 134.007ms 7.462fps | Int 5029ms 37fr 7.357fps | EMA 7.378fps
+AKAZE2: Last 137.007ms 7.299fps | Int 5029ms 37fr 7.357fps | EMA 7.374fps
+AKAZE2: Last 135.007ms 7.407fps | Int 5008ms 37fr 7.388fps | EMA 7.376fps
+AKAZE2: Last 137.007ms 7.299fps | Int 5133ms 38fr 7.403fps | EMA 7.382fps
+AKAZE2: Last 135.007ms 7.407fps | Int 5005ms 37fr 7.392fps | EMA 7.384fps
+AKAZE2: Last 136.007ms 7.353fps | Int 5020ms 37fr 7.370fps | EMA 7.381fps
+AKAZE2: Last 135.007ms 7.407fps | Int 5003ms 37fr 7.395fps | EMA 7.384fps
+AKAZE2: Last 140.008ms 7.142fps | Int 5013ms 37fr 7.380fps | EMA 7.383fps
+AKAZE2: Last 135.007ms 7.407fps | Int 5021ms 37fr 7.369fps | EMA 7.380fps
+AKAZE2: Last 142.008ms 7.042fps | Int 5039ms 37fr 7.342fps | EMA 7.373fps
+AKAZE2: Last 135.007ms 7.407fps | Int 5021ms 37fr 7.369fps | EMA 7.372fps
+AKAZE2: Last 137.007ms 7.299fps | Int 5023ms 37fr 7.366fps | EMA 7.371fps
+AKAZE2: Last 135.007ms 7.407fps | Int 5028ms 37fr 7.358fps | EMA 7.368fps
+AKAZE2: Last 136.007ms 7.353fps | Int 5077ms 37fr 7.287fps | EMA 7.352fps
+AKAZE2: Last 134.007ms 7.462fps | Int 5021ms 37fr 7.369fps | EMA 7.355fps
+AKAZE2: Last 134.007ms 7.462fps | Int 5051ms 37fr 7.325fps | EMA 7.349fps
+AKAZE2: Last 135.007ms 7.407fps | Int 5020ms 37fr 7.370fps | EMA 7.353fps
+AKAZE2: Last 136.007ms 7.353fps | Int 5018ms 37fr 7.373fps | EMA 7.357fps
+
+
+c. Release configuration, 64-bit build, single thread
+
+AKAZE2: Last 30.001ms 33.332fps | Int 5008ms 164fr 32.746fps | EMA 31.436fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5028ms 164fr 32.615fps | EMA 31.672fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5016ms 164fr 32.694fps | EMA 31.877fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5001ms 164fr 32.792fps | EMA 32.060fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5008ms 163fr 32.546fps | EMA 32.157fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5021ms 164fr 32.661fps | EMA 32.258fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5028ms 164fr 32.615fps | EMA 32.329fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5027ms 164fr 32.622fps | EMA 32.388fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5027ms 164fr 32.622fps | EMA 32.435fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5021ms 164fr 32.661fps | EMA 32.480fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5029ms 165fr 32.808fps | EMA 32.545fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5005ms 163fr 32.566fps | EMA 32.549fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5020ms 164fr 32.667fps | EMA 32.573fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5005ms 164fr 32.765fps | EMA 32.612fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5018ms 164fr 32.680fps | EMA 32.625fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5029ms 164fr 32.609fps | EMA 32.622fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5017ms 164fr 32.687fps | EMA 32.635fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5030ms 164fr 32.603fps | EMA 32.629fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5028ms 164fr 32.615fps | EMA 32.626fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5027ms 164fr 32.622fps | EMA 32.625fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5024ms 164fr 32.641fps | EMA 32.628fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5029ms 164fr 32.609fps | EMA 32.625fps
+AKAZE2: Last 31.001ms 32.257fps | Int 5023ms 164fr 32.648fps | EMA 32.629fps
+AKAZE2: Last 30.001ms 33.332fps | Int 5029ms 164fr 32.609fps | EMA 32.625fps
+
+
+d. Release configuration, 64-bit build, eight threads; OPENCV_THREAD_COUNT==8
+
+AKAZE2: Last 21.001ms 47.617fps | Int 5015ms 240fr 47.854fps | EMA 48.088fps
+AKAZE2: Last 21.001ms 47.617fps | Int 5001ms 241fr 48.188fps | EMA 48.108fps
+AKAZE2: Last 20.001ms 49.998fps | Int 5008ms 242fr 48.320fps | EMA 48.150fps
+AKAZE2: Last 22.001ms 45.452fps | Int 5007ms 241fr 48.130fps | EMA 48.146fps
+AKAZE2: Last 19.001ms 52.629fps | Int 5003ms 242fr 48.368fps | EMA 48.191fps
+AKAZE2: Last 21.001ms 47.617fps | Int 5018ms 243fr 48.423fps | EMA 48.237fps
+AKAZE2: Last 21.001ms 47.617fps | Int 5010ms 243fr 48.500fps | EMA 48.290fps
+AKAZE2: Last 21.001ms 47.617fps | Int 5019ms 243fr 48.413fps | EMA 48.314fps
+AKAZE2: Last 21.001ms 47.617fps | Int 5001ms 242fr 48.388fps | EMA 48.329fps
+AKAZE2: Last 22.001ms 45.452fps | Int 5011ms 242fr 48.291fps | EMA 48.321fps
+AKAZE2: Last 21.001ms 47.617fps | Int 5009ms 243fr 48.510fps | EMA 48.359fps
+AKAZE2: Last 22.001ms 45.452fps | Int 5001ms 240fr 47.988fps | EMA 48.285fps
+AKAZE2: Last 22.001ms 45.452fps | Int 5021ms 243fr 48.394fps | EMA 48.307fps
+AKAZE2: Last 21.001ms 47.617fps | Int 5008ms 242fr 48.320fps | EMA 48.309fps
+AKAZE2: Last 21.001ms 47.617fps | Int 5020ms 242fr 48.204fps | EMA 48.288fps
+AKAZE2: Last 22.001ms 45.452fps | Int 5001ms 242fr 48.388fps | EMA 48.308fps
+AKAZE2: Last 22.001ms 45.452fps | Int 5018ms 243fr 48.423fps | EMA 48.331fps
+AKAZE2: Last 22.001ms 45.452fps | Int 5000ms 242fr 48.397fps | EMA 48.344fps
+AKAZE2: Last 20.001ms 49.998fps | Int 5003ms 240fr 47.968fps | EMA 48.269fps
+AKAZE2: Last 22.001ms 45.452fps | Int 5004ms 241fr 48.159fps | EMA 48.247fps
+AKAZE2: Last 19.001ms 52.629fps | Int 5007ms 242fr 48.330fps | EMA 48.264fps
+AKAZE2: Last 21.001ms 47.617fps | Int 5014ms 243fr 48.462fps | EMA 48.303fps
+AKAZE2: Last 20.001ms 49.998fps | Int 5017ms 243fr 48.433fps | EMA 48.329fps
+AKAZE2: Last 20.001ms 49.998fps | Int 5011ms 242fr 48.291fps | EMA 48.321fps
+
+
+[Additional Info]
+
+  1. The duration of Create_Nonlinear_Scale_Space() plus Compute_Determinant_Hessian_Response():
+
+           | Serial Version                   | Parallel Version                 | Diff              | Ratio             |
+           | Create NSS | Hessian  | Total    | Create NSS | Hessian  | Total    | Serial - Parallel | Serial / Parallel |
+           +------------+----------+----------+------------+----------+----------+-------------------+-------------------+
+    | R9.2 | 12.3msec   | 15.5msec | 27.8msec | 12.3msec   | 7.3msec  | 19.6msec |      8.2msec      |     141.8%        |
+    | R9.3 |        26.3msec       | 26.3msec |        15.3msec       | 15.3msec |     11.0msec      |     171.9%        |
+
+    The bottleneck is t0 of Create_Nonlinear_Scale_Space(), so Compute_Determinant_Hessian_Response()
+    is not able to utilize the remaining cores on the testbed machine.
+
+    The cost of launching/joining async tasks from/to Create_Nonlinear_Scale_Space() was
+    3msec (= 15.3msec - 12.3msec), which is 19.6% of new Create_Nonlinear_Scale_Space().
+
+    --------
+    *: the measurement is done by concurrency visualizer and its span marker.
+       A span with no preemption / no interrupt is picked up.
+
+
+  2. Applying cv::parallel_for_() to compute_k_percentile() has been tested,
+     but the change produced poor results.
+
+     This was because OpenMP interacts std::async() w.r.t. the task scheduling,
+     and the critical path(t0) becomes longer.
+
+
+END.
