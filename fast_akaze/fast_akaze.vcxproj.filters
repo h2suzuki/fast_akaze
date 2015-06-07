@@ -142,5 +142,8 @@
     <Text Include="..\perf_tests\Profiler Results - R9.5.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R10 - Vary the number of threads.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>
