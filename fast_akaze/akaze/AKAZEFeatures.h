@@ -68,13 +68,7 @@ public:
 
   /// Feature description methods
   void Compute_Descriptors(std::vector<cv::KeyPoint>& kpts, cv::Mat& desc);
-  static void Compute_Main_Orientation(cv::KeyPoint& kpt, const std::vector<TEvolutionV2>& evolution_);
 };
-
-/* ************************************************************************* */
-/// Inline functions
-void generateDescriptorSubsampleV2(cv::Mat& sampleList, cv::Mat& comparisons,
-                                 int nbits, int pattern_size, int nchannels);
 
 }
 

@@ -14,6 +14,8 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
+#include <cstring>
+#include <cstdint>
 #include <iostream>
 
 // Taken from opencv2/internal.hpp: IEEE754 constants and macros
@@ -23,6 +25,14 @@
 namespace cv
 {
 using namespace std;
+
+
+/// Internal Functions
+inline
+void Compute_Main_Orientation(cv::KeyPoint& kpt, const TEvolutionV2& evolution_);
+static
+void generateDescriptorSubsampleV2(cv::Mat& sampleList, cv::Mat& comparisons, int nbits, int pattern_size, int nchannels);
+
 
 /* ************************************************************************* */
 /**
@@ -525,8 +535,9 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      AKAZEFeaturesV2::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
-      Get_SURF_Descriptor_64((*keypoints_)[i], descriptors_->ptr<float>(i));
+      KeyPoint &kp{ (*keypoints_)[i] };
+      Compute_Main_Orientation(kp, (*evolution_)[kp.class_id]);
+      Get_SURF_Descriptor_64(kp, descriptors_->ptr<float>(i));
     }
   }
 
@@ -578,8 +589,9 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      AKAZEFeaturesV2::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
-      Get_MSURF_Descriptor_64((*keypoints_)[i], descriptors_->ptr<float>(i));
+      KeyPoint &kp{ (*keypoints_)[i] };
+      Compute_Main_Orientation(kp, (*evolution_)[kp.class_id]);
+      Get_MSURF_Descriptor_64(kp, descriptors_->ptr<float>(i));
     }
   }
 
@@ -672,8 +684,9 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      AKAZEFeaturesV2::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
-      Get_MLDB_Full_Descriptor((*keypoints_)[i], descriptors_->ptr<unsigned char>(i));
+      KeyPoint &kp{ (*keypoints_)[i] };
+      Compute_Main_Orientation(kp, (*evolution_)[kp.class_id]);
+      Get_MLDB_Full_Descriptor(kp, descriptors_->ptr<unsigned char>(i));
     }
   }
 
@@ -712,8 +725,9 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      AKAZEFeaturesV2::Compute_Main_Orientation((*keypoints_)[i], *evolution_);
-      Get_MLDB_Descriptor_Subset((*keypoints_)[i], descriptors_->ptr<unsigned char>(i));
+      KeyPoint &kp{ (*keypoints_)[i] };
+      Compute_Main_Orientation(kp, (*evolution_)[kp.class_id]);
+      Get_MLDB_Descriptor_Subset(kp, descriptors_->ptr<unsigned char>(i));
     }
   }
 
@@ -790,13 +804,20 @@ void AKAZEFeaturesV2::Compute_Descriptors(std::vector<KeyPoint>& kpts, Mat& desc
 
 /* ************************************************************************* */
 /**
- * @brief This method computes the main orientation for a given keypoint
- * @param kpt Input keypoint
- * @note The orientation is computed using a similar approach as described in the
- * original SURF method. See Bay et al., Speeded Up Robust Features, ECCV 2006
+ * @brief This function samples the derivative responses Lx and Ly for the points
+ * within the radius of 6*scale from (x0, y0), then multiply 2D Gaussian weight
+ * @param Lx Horizontal derivative
+ * @param Ly Vertical derivative
+ * @param x0 X-coordinate of the center point
+ * @param y0 Y-coordinate of the center point
+ * @param scale The sampling step
+ * @param resX Output array of the weighted horizontal derivative responses
+ * @param resY Output array of the weighted vertical derivative responses
  */
-inline
-void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<TEvolutionV2>& evolution_)
+static inline
+void Sample_Derivative_Response_Radius6(const Mat &Lx, const Mat &Ly,
+                                  const int x0, const int y0, const int scale,
+                                  float *resX, float *resY)
 {
     /* ************************************************************************* */
     /// Lookup table for 2d gaussian (sigma = 2.5) where (0,0) is top left and (6,6) is bottom right
@@ -810,68 +831,163 @@ void AKAZEFeaturesV2::Compute_Main_Orientation(KeyPoint& kpt, const std::vector<
         { 0.00344629f, 0.00318132f, 0.00250252f, 0.00167749f, 0.00095820f, 0.00046640f, 0.00019346f },
         { 0.00142946f, 0.00131956f, 0.00103800f, 0.00069579f, 0.00039744f, 0.00019346f, 0.00008024f }
     };
+    static const int id[] = { 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6 };
 
-  int ix = 0, iy = 0, idx = 0, s = 0, level = 0;
-  float xf = 0.0, yf = 0.0, gweight = 0.0, ratio = 0.0;
-  const int ang_size = 109;
-  float resX[ang_size], resY[ang_size], Ang[ang_size];
-  const int id[] = { 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6 };
+    const int sz = 109;
+    static float gweight[sz];
+    static int8_t xidx[sz];
+    static int8_t yidx[sz];
 
-  // Variables for computing the dominant direction
-  float sumX = 0.0, sumY = 0.0, max = 0.0, ang1 = 0.0, ang2 = 0.0;
+    static bool initialized = false;
 
+
+  if (!initialized) {
+    int k = 0;
+
+    // Generate the indices
+    for (int i = -6; i <= 6; ++i) {
+      for (int j = -6; j <= 6; ++j) {
+        if (i*i + j*j < 36) {
+          gweight[k] = gauss25[id[i + 6]][id[j + 6]];
+          yidx[k] = i;
+          xidx[k] = j;
+          ++k;
+        }
+      }
+    }
+    CV_DbgAssert(k == sz);
+
+    initialized = true;
+  }
+
+  const float * lx = Lx.ptr<float>(0);
+  const float * ly = Ly.ptr<float>(0);
+  int cols = Lx.cols;
+
+  for (int i = 0; i < sz; i++) {
+    int j = (y0 + yidx[i] * scale) * cols + (x0 + xidx[i] * scale);
+
+    resX[i] = gweight[i] * lx[j];
+    resY[i] = gweight[i] * ly[j];
+  }
+}
+
+/* ************************************************************************* */
+/**
+ * @brief This function sorts a[] by quantized float values
+ * @param a[] Input floating point array to sort
+ * @param n The length of a[]
+ * @param quantum The interval to convert a[]'s float values to integers
+ * @param max The upper bound of a[]'s values
+ * @param idx[] Output array of the indices: a[idx[i]] is a sorted array
+ * @param cum[] Output array of the starting indices of quantized floats
+ * @note The values of a[] in [k*quantum, (k + 1)*quantum) is labeled by
+ * the integer k, which is calculated by floor(a[i]/quantum).  After sorting,
+ * the values from a[idx[cum[k]]] to a[idx[cum[k+1]-1]] are all labeled by k.
+ * This sorting is unstable in order to reduce the computation.
+ */
+static inline
+void quantized_counting_sort(const float a[], const int n,
+                             const float quantum, const float max,
+                             uint8_t idx[], uint8_t cum[])
+{
+  const int nkeys = (int)(max / quantum) + 1;
+
+  memset(cum, 0, nkeys + 1);
+
+  // Count up the quantized values
+  for (int i = 0; i < n; i++)
+    cum[(int)(a[i] / quantum)]++;
+
+  // Compute the inclusive prefix sum i.e. the end indices; cum[nkeys] is the total
+  for (int i = 1; i <= nkeys; i++)
+    cum[i] += cum[i - 1];
+
+  // Generate the sorted indices; cum[] becomes the exclusive prefix sum i.e. the start indices of keys
+  for (int i = 0; i < n; i++)
+    idx[--cum[(int)(a[i] / quantum)]] = i;
+}
+
+
+/* ************************************************************************* */
+/**
+ * @brief This function computes the main orientation for a given keypoint
+ * @param kpt Input keypoint
+ * @note The orientation is computed using a similar approach as described in the
+ * original SURF method. See Bay et al., Speeded Up Robust Features, ECCV 2006
+ */
+inline
+void Compute_Main_Orientation(KeyPoint& kpt, const TEvolutionV2& e)
+{
   // Get the information from the keypoint
-  level = kpt.class_id;
-  ratio = evolution_[level].octave_ratio;
-  s = fRoundV2(0.5f*kpt.size / ratio);
-  xf = kpt.pt.x / ratio;
-  yf = kpt.pt.y / ratio;
+  int scale = fRoundV2(0.5f * kpt.size / e.octave_ratio);
+  int x0 = fRoundV2(kpt.pt.x / e.octave_ratio);
+  int y0 = fRoundV2(kpt.pt.y / e.octave_ratio);
 
-  // Calculate derivatives responses for points within radius of 6*scale
-  for (int i = -6; i <= 6; ++i) {
-    for (int j = -6; j <= 6; ++j) {
-      if (i*i + j*j < 36) {
-        iy = fRoundV2(yf + j*s);
-        ix = fRoundV2(xf + i*s);
+  // Sample derivatives responses for the points within radius of 6*scale
+  const int ang_size = 109;
+  float resX[ang_size], resY[ang_size];
+  Sample_Derivative_Response_Radius6(e.Lx, e.Ly, x0, y0, scale, resX, resY);
 
-        gweight = gauss25[id[i + 6]][id[j + 6]];
-        resX[idx] = gweight*(*(evolution_[level].Lx.ptr<float>(iy)+ix));
-        resY[idx] = gweight*(*(evolution_[level].Ly.ptr<float>(iy)+ix));
-
-        ++idx;
-      }
-    }
-  }
+  // Compute the angle of each gradient vector
+  float Ang[ang_size];
   fastAtan2(resY, resX, Ang, ang_size, false);
-  // Loop slides pi/3 window around feature point
-  for (ang1 = 0; ang1 < (float)(2.0 * CV_PI); ang1 += 0.15f) {
-    ang2 = (ang1 + (float)(CV_PI / 3.0) >(float)(2.0*CV_PI) ? ang1 - (float)(5.0*CV_PI / 3.0) : ang1 + (float)(CV_PI / 3.0));
-    sumX = sumY = 0.f;
 
-    for (int k = 0; k < ang_size; ++k) {
-      // Get angle from the x-axis of the sample point
-      const float & ang = Ang[k];
+  // Sort by the angles; angles are labeled by slices of 0.15 radian
+  const int slices = (int)(2.0 * CV_PI / 0.15f) + 1;  /* i.e. 42 */
+  uint8_t slice[slices + 1];
+  uint8_t sorted_idx[ang_size];
+  quantized_counting_sort(Ang, ang_size, 0.15f, (float)(2.0 * CV_PI), sorted_idx, slice);
 
-      // Determine whether the point is within the window
-      if (ang1 < ang2 && ang1 < ang && ang < ang2) {
-        sumX += resX[k];
-        sumY += resY[k];
-      }
-      else if (ang2 < ang1 &&
-               ((ang > 0 && ang < ang2) || (ang > ang1 && ang < 2.0f*CV_PI))) {
-        sumX += resX[k];
-        sumY += resY[k];
-      }
-    }
+  // Find the main angle by sliding a 7-slice-size window (1.05 = PI/3 approx) around the keypoint
+  const int win = 7;
 
-    // if the vector produced from this window is longer than all
-    // previous vectors then this forms the new dominant direction
-    if (sumX*sumX + sumY*sumY > max) {
-      // store largest orientation
-      max = sumX*sumX + sumY*sumY;
-      kpt.angle = getAngleV2(sumX, sumY);
-    }
+  float maxX = 0.0f, maxY = 0.0f;
+  for (int i = slice[0]; i < slice[win]; i++) {
+    maxX += resX[sorted_idx[i]];
+    maxY += resY[sorted_idx[i]];
   }
+  float maxNorm = maxX * maxX + maxY * maxY;
+
+  for (int sn = 1; sn <= slices - win; sn++) {
+
+    if (slice[sn] == slice[sn - 1] && slice[sn + win] == slice[sn + win - 1])
+      continue;  // The contents of the window didn't change; don't repeat the computation
+
+    float sumX = 0.0f, sumY = 0.0f;
+    for (int i = slice[sn]; i < slice[sn + win]; i++) {
+      sumX += resX[sorted_idx[i]];
+      sumY += resY[sorted_idx[i]];
+    }
+
+    float norm = sumX * sumX + sumY * sumY;
+    if (norm > maxNorm)
+        maxNorm = norm, maxX = sumX, maxY = sumY;  // Found bigger one; update
+  }
+
+  for (int sn = slices - win + 1; sn < slices; sn++) {
+    int remain = sn + win - slices;
+
+    if (slice[sn] == slice[sn - 1] && slice[remain] == slice[remain - 1])
+      continue;
+
+    float sumX = 0.0f, sumY = 0.0f;
+    for (int i = slice[sn]; i < slice[slices]; i++) {
+      sumX += resX[sorted_idx[i]];
+      sumY += resY[sorted_idx[i]];
+    }
+    for (int i = slice[0]; i < slice[remain]; i++) {
+      sumX += resX[sorted_idx[i]];
+      sumY += resY[sorted_idx[i]];
+    }
+
+    float norm = sumX * sumX + sumY * sumY;
+    if (norm > maxNorm)
+        maxNorm = norm, maxX = sumX, maxY = sumY;
+  }
+
+  // Store the final result
+  kpt.angle = getAngleV2(maxX, maxY);
 }
 
 /* ************************************************************************* */
@@ -1686,6 +1802,7 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
  * @note The function keeps the 18 bits (3-channels by 6 comparisons) of the
  * coarser grid, since it provides the most robust estimations
  */
+static
 void generateDescriptorSubsampleV2(Mat& sampleList, Mat& comparisons, int nbits,
                                  int pattern_size, int nchannels) {
 

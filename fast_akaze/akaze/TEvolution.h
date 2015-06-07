@@ -8,6 +8,8 @@
 #ifndef __OPENCV_FEATURES_2D_TEVOLUTION_H__
 #define __OPENCV_FEATURES_2D_TEVOLUTION_H__
 
+#include <opencv2/core.hpp>
+
 namespace cv
 {
 
