@@ -371,10 +371,6 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response_Single(const int leve
   TEvolutionV2 &e = evolution_[level];
 
   const int total = e.Lsmooth.cols * e.Lsmooth.rows;
-  const float sigma_size = (float)e.sigma_size;
-
-  float *lx = e.Lx.ptr<float>(0);
-  float *ly = e.Ly.ptr<float>(0);
   float *lxx = e.Lxx.ptr<float>(0);
   float *lxy = e.Lxy.ptr<float>(0);
   float *lyy = e.Lyy.ptr<float>(0);
@@ -382,19 +378,10 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response_Single(const int leve
 
   // Firstly compute the multiscale derivatives
   sepFilter2D(e.Lsmooth, e.Lx, CV_32F, e.DxKx, e.DxKy);
-  for (int j = 0; j < total; j++) lx[j] *= sigma_size;
-
   sepFilter2D(e.Lx, e.Lxx, CV_32F, e.DxKx, e.DxKy);
-  for (int j = 0; j < total; j++) lxx[j] *= sigma_size;
-
   sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
-  for (int j = 0; j < total; j++) lxy[j] *= sigma_size;
-
   sepFilter2D(e.Lsmooth, e.Ly, CV_32F, e.DyKx, e.DyKy);
-  for (int j = 0; j < total; j++) ly[j] *= sigma_size;
-
   sepFilter2D(e.Ly, e.Lyy, CV_32F, e.DyKx, e.DyKy);
-  for (int j = 0; j < total; j++) lyy[j] *= sigma_size;
 
   // Compute Ldet by Lxx.mul(Lyy) - Lxy.mul(Lxy)
   for (int j = 0; j < total; j++)
@@ -420,13 +407,9 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(const int level) {
   atomic_int &dep = taskdeps_[level];
 
   const int total = e.Lsmooth.cols * e.Lsmooth.rows;
-  const float sigma_size = (float)e.sigma_size;
-
-  float *lx = e.Lx.ptr<float>(0);
   float *lxx = e.Lxx.ptr<float>(0);
-  float *ly = e.Ly.ptr<float>(0);
-  float *lyy = e.Lyy.ptr<float>(0);
   float *lxy = e.Lxy.ptr<float>(0);
+  float *lyy = e.Lyy.ptr<float>(0);
   float *ldet = e.Ldet.ptr<float>(0);
 
   atomic_init(&dep, 0);
@@ -434,38 +417,28 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(const int level) {
   tasklist_[0][level] = async([=, &e, &dep]{
 
     sepFilter2D(e.Lsmooth, e.Ly, CV_32F, e.DyKx, e.DyKy);
-    for (int j = 0; j < total; j++) ly[j] *= sigma_size;
-
     sepFilter2D(e.Ly, e.Lyy, CV_32F, e.DyKx, e.DyKy);
-    for (int j = 0; j < total; j++) lyy[j] *= sigma_size;
 
     if (dep.fetch_add(1, memory_order_relaxed) != 1)
       return; // The other dependency is not ready
 
     sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
-    for (int j = 0; j < total; j++) {
-      lxy[j] *= sigma_size;
+    for (int j = 0; j < total; j++)
       ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
-    }
 
   });
 
   tasklist_[1][level] = async([=, &e, &dep]{
 
     sepFilter2D(e.Lsmooth, e.Lx, CV_32F, e.DxKx, e.DxKy);
-    for (int j = 0; j < total; j++) lx[j] *= sigma_size;
-
     sepFilter2D(e.Lx, e.Lxx, CV_32F, e.DxKx, e.DxKy);
-    for (int j = 0; j < total; j++) lxx[j] *= sigma_size;
 
     if (dep.fetch_add(1, memory_order_relaxed) != 1)
       return; // The other dependency is not ready
 
     sepFilter2D(e.Lx, e.Lxy, CV_32F, e.DyKx, e.DyKy);
-    for (int j = 0; j < total; j++) {
-      lxy[j] *= sigma_size;
+    for (int j = 0; j < total; j++)
       ldet[j] = lxx[j] * lyy[j] - lxy[j] * lxy[j];
-    }
 
   });
 
@@ -639,7 +612,8 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
     // Clear the workspace to hold the keypoint candidates
     kpts_aux_[i].clear();
 
-    tasklist_[0][i] = async(launch::async, [&step,&kpts,smax,i](const AKAZEOptionsV2 &opt)
+    auto mode = (i > 0? launch::async : launch::deferred);
+    tasklist_[0][i] = async(mode, [&step,&kpts,smax,i](const AKAZEOptionsV2 &opt)
     {
 
       // Descriptors cannot be computed for the points on the border; exclude them first

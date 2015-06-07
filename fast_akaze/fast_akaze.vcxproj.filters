@@ -145,5 +145,11 @@
     <Text Include="..\perf_tests\R10 - Vary the number of threads.txt">
       <Filter>Test Results</Filter>
     </Text>
+    <Text Include="..\perf_tests\R11 - Combine sepFilter2D and scaling.txt">
+      <Filter>Test Results</Filter>
+    </Text>
+    <Text Include="..\perf_tests\Profiler Results - R11.txt">
+      <Filter>Test Results</Filter>
+    </Text>
   </ItemGroup>
 </Project>

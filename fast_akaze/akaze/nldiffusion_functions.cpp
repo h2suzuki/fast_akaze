@@ -278,7 +278,7 @@ void compute_scharr_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _k
 
     // The standard Scharr kernel
     if (scale == 1) {
-        getDerivKernels(_kx, _ky, dx, dy, 0, true, CV_32F);
+        getDerivKernels(_kx, _ky, dx, dy, CV_SCHARR, true, CV_32F);
         return;
     }
 
@@ -288,7 +288,7 @@ void compute_scharr_derivative_kernelsV2(cv::OutputArray _kx, cv::OutputArray _k
     Mat ky = _ky.getMat();
 
     float w = 10.0f / 3.0f;
-    float norm = 1.0f / (2.0f*scale*(w + 2.0f));
+    float norm = 1.0f / (2.0f*(w + 2.0f));
 
     std::vector<float> kerI(ksize, 0.0f);
 
