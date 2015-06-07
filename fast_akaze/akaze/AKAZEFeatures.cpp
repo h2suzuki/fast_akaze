@@ -99,7 +99,10 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
   lstep_.create(options_.img_height, options_.img_width, CV_32FC1);
   histgram_.resize(options_.kcontrast_nbins);
   modgs_.resize((options_.img_height - 2) * (options_.img_width - 2));  // excluding the border
-  kpts_aux_.reserve(evolution_.size() * 1024);  // reserve 1K points' space for each evolution step
+
+  kpts_aux_.resize(evolution_.size());
+  for (size_t i = 0; i < evolution_.size(); i++)
+      kpts_aux_[i].reserve(1024);  // reserve 1K points' space for each evolution step
 
   // Allocate memory for the number of cycles and time steps
   tsteps_.resize(evolution_.size() - 1);
@@ -294,22 +297,47 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(void) {
 
 /* ************************************************************************* */
 /**
+ * @brief This method searches v for a neighbor point of the point candidate p
+ * @param p The keypoint candidate to search a neighbor
+ * @param v The vector to store the points to be searched
+ * @param offset The starting location in the vector v to be searched at
+ * @param idx The index of the vector v if a neighbor is found
+ * @return true if a neighbor point is found; false otherwise
+ */
+inline
+bool find_neighbor_point(const KeyPoint &p, const vector<KeyPoint> &v, const int offset, int &idx)
+{
+    const int sz = (int)v.size();
+
+    for (int i = offset; i < sz; i++) {
+
+        if (v[i].class_id == -1) // Skip a deleted point
+            continue;
+
+        float dx = p.pt.x - v[i].pt.x;
+        float dy = p.pt.y - v[i].pt.y;
+        if (dx * dx + dy * dy <= p.size * p.size) {
+            idx = i;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/* ************************************************************************* */
+/**
  * @brief This method finds extrema in the nonlinear scale space
  * @param kpts Vector of detected keypoints
  */
 void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
 {
-
-  float value = 0.0;
-  float dist = 0.0, ratio = 0.0, smax = 0.0;
-  int npoints = 0, id_repeated = 0;
-  int sigma_size_ = 0, left_x = 0, right_x = 0, up_y = 0, down_y = 0;
-  bool is_extremum = false, is_repeated = false, is_out = false;
-  KeyPoint point;
-
-  kpts_aux_.clear();
+  // Clear the workspace to hold the detected keypoint candidates
+  for (size_t i = 0; i < kpts_aux_.size(); i++)
+    kpts_aux_[i].clear();
 
   // Set maximum size
+  float smax = 0.0;
   if (options_.descriptor == AKAZE::DESCRIPTOR_MLDB_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_MLDB) {
     smax = 10.0f*sqrtf(2.0f);
   }
@@ -317,118 +345,83 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<KeyPoint>& kpts)
     smax = 12.0f*sqrtf(2.0f);
   }
 
-  for (size_t i = 0; i < evolution_.size(); i++) {
-    float* prev = evolution_[i].Ldet.ptr<float>(0);
-    float* curr = evolution_[i].Ldet.ptr<float>(1);
-    for (int ix = 1; ix < evolution_[i].Ldet.rows - 1; ix++) {
-      float* next = evolution_[i].Ldet.ptr<float>(ix + 1);
+  for (int i = 0; i < (int)evolution_.size(); i++) {
+    const TEvolutionV2 &step = evolution_[i];
 
-      for (int jx = 1; jx < evolution_[i].Ldet.cols - 1; jx++) {
-        is_extremum = false;
-        is_repeated = false;
-        is_out = false;
-        value = *(evolution_[i].Ldet.ptr<float>(ix)+jx);
+    // Descriptors of the points on the border cannot be computed; exclude them first
+    const int border = fRoundV2(smax * step.sigma_size) + 1;
+
+    const float * prev = step.Ldet.ptr<float>(border - 1);
+    const float * curr = step.Ldet.ptr<float>(border    );
+    const float * next = step.Ldet.ptr<float>(border + 1);
+
+    for (int y = border; y < step.Ldet.rows - border; y++) {
+      for (int x = border; x < step.Ldet.cols - border; x++) {
+
+        const float value = curr[x];
 
         // Filter the points with the detector threshold
-        if (value > options_.dthreshold && value >= options_.min_dthreshold &&
-            value > curr[jx-1] &&
-            value > curr[jx+1] &&
-            value > prev[jx-1] &&
-            value > prev[jx] &&
-            value > prev[jx+1] &&
-            value > next[jx-1] &&
-            value > next[jx] &&
-            value > next[jx+1]) {
+        if (value <= options_.dthreshold || value < options_.min_dthreshold)
+          continue;
+        if (value <= curr[x-1] || value <= curr[x+1])
+          continue;
+        if (value <= prev[x-1] || value <= prev[x  ] || value <= prev[x+1])
+          continue;
+        if (value <= next[x-1] || value <= next[x  ] || value <= next[x+1])
+          continue;
 
-          is_extremum = true;
-          point.response = fabs(value);
-          point.size = evolution_[i].esigma*options_.derivative_factor;
-          point.octave = (int)evolution_[i].octave;
-          point.class_id = (int)i;
-          ratio = evolution_[i].octave_ratio;
-          sigma_size_ = fRoundV2(point.size / ratio);
-          point.pt.x = static_cast<float>(jx);
-          point.pt.y = static_cast<float>(ix);
+        KeyPoint point( /* x */ static_cast<float>(x * step.octave_ratio),
+                        /* y */ static_cast<float>(y * step.octave_ratio),
+                        /* size */ step.esigma * options_.derivative_factor,
+                        /* angle */ -1,
+                        /* response */ value,
+                        /* octave */ step.octave,
+                        /* class_id */ i);
 
-          // Compare response with the same and lower scale
-          for (size_t ik = 0; ik < kpts_aux_.size(); ik++) {
+        int idx = 0;
 
-            if ((point.class_id - 1) == kpts_aux_[ik].class_id ||
-                point.class_id == kpts_aux_[ik].class_id) {
-              float distx = point.pt.x*ratio - kpts_aux_[ik].pt.x;
-              float disty = point.pt.y*ratio - kpts_aux_[ik].pt.y;
-              dist = distx * distx + disty * disty;
-              if (dist <= point.size * point.size) {
-                if (point.response > kpts_aux_[ik].response) {
-                  id_repeated = (int)ik;
-                  is_repeated = true;
-                }
-                else {
-                  is_extremum = false;
-                }
-                break;
-              }
-            }
-          }
-
-          // Check out of bounds
-          if (is_extremum == true) {
-
-            // Check that the point is under the image limits for the descriptor computation
-            left_x = fRoundV2(point.pt.x - smax*sigma_size_) - 1;
-            right_x = fRoundV2(point.pt.x + smax*sigma_size_) + 1;
-            up_y = fRoundV2(point.pt.y - smax*sigma_size_) - 1;
-            down_y = fRoundV2(point.pt.y + smax*sigma_size_) + 1;
-
-            if (left_x < 0 || right_x >= evolution_[i].Ldet.cols ||
-                up_y < 0 || down_y >= evolution_[i].Ldet.rows) {
-              is_out = true;
-            }
-
-            if (is_out == false) {
-              if (is_repeated == false) {
-                point.pt.x *= ratio;
-                point.pt.y *= ratio;
-                kpts_aux_.push_back(point);
-                npoints++;
-              }
-              else {
-                point.pt.x *= ratio;
-                point.pt.y *= ratio;
-                kpts_aux_[id_repeated] = point;
-              }
-            } // if is_out
-          } //if is_extremum
+        // Compare response with the same scale
+        if (find_neighbor_point(point, kpts_aux_[i], 0, idx)) {
+          if (point.response > kpts_aux_[i][idx].response)
+            kpts_aux_[i][idx] = point;  // Replace the old point
+          continue;
         }
-      } // for jx
+
+        // Compare response with the lower scale
+        if (i > 0 && find_neighbor_point(point, kpts_aux_[i - 1], 0, idx)) {
+          if (point.response > kpts_aux_[i - 1][idx].response) {
+            kpts_aux_[i - 1][idx].class_id = -1;  // Mark it as deleted
+            kpts_aux_[i].push_back(point);  // Insert the new point to the right layer
+          }
+          continue;
+        }
+
+        kpts_aux_[i].push_back(point);  // A good keypoint candidate is found
+
+      }
       prev = curr;
       curr = next;
-    } // for ix
-  } // for i
+      next += step.Ldet.cols;
+    }
+  }
 
   // Now filter points with the upper scale level
-  for (size_t i = 0; i < kpts_aux_.size(); i++) {
+  for (int i = 0; i < (int)kpts_aux_.size() - 1; i++) {
+    for (int j = 0; j < (int)kpts_aux_[i].size(); j++) {
 
-    is_repeated = false;
-    const KeyPoint& pt = kpts_aux_[i];
-    for (size_t j = i + 1; j < kpts_aux_.size(); j++) {
+      const KeyPoint& pt = kpts_aux_[i][j];
 
-      // Compare response with the upper scale
-      if ((pt.class_id + 1) == kpts_aux_[j].class_id) {
-        float distx = pt.pt.x - kpts_aux_[j].pt.x;
-        float disty = pt.pt.y - kpts_aux_[j].pt.y;
-        dist = distx * distx + disty * disty;
-        if (dist <= pt.size * pt.size) {
-          if (pt.response < kpts_aux_[j].response) {
-            is_repeated = true;
-            break;
-          }
-        }
+      if (pt.class_id == -1) // Skip a deleted point
+          continue;
+
+      int idx = 0;
+      if (find_neighbor_point(pt, kpts_aux_[i + 1], j + 1, idx)) {
+        if (pt.response < kpts_aux_[i + 1][idx].response)
+          continue;
       }
-    }
 
-    if (is_repeated == false)
       kpts.push_back(pt);
+    }
   }
 }
 

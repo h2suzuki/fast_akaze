@@ -118,6 +118,7 @@
     <Text Include="..\perf_tests\R7 - Make heavy loops more auto-vectorizer friendly.txt" />
     <Text Include="..\perf_tests\R8.1 - Refactor compute_k_percentile.txt" />
     <Text Include="..\perf_tests\R8.2 - Refactor nld_step_scalar.txt" />
+    <Text Include="..\perf_tests\R8.3 - Refactor Find_Scale_Space_Extrema.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
