@@ -3,6 +3,8 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/features2d.hpp>
 
+#include "features2d_akaze2.hpp"
+
 #include <functional>	// ref()
 #include <atomic>
 #include <thread>
@@ -13,6 +15,10 @@
 
 #include "barter.hpp"
 #include "fps_stats.hpp"
+
+
+// The switch to select AKAZE(the original version) or AKAZE2(the local variant)
+#define USE_AKAZE2			1
 
 
 // The number of threads to use; 0 to disable multi-threading
@@ -63,7 +69,11 @@ enum ThreadCommand {
 };
 
 
+#if USE_AKAZE2
+void tune_akaze_threshold(cv::AKAZE2 & akaze_, int last_nkp)
+#else
 void tune_akaze_threshold(cv::AKAZE & akaze_, int last_nkp)
+#endif
 {
     if (AKAZE_KPCOUNT_MIN <= last_nkp && last_nkp <= AKAZE_KPCOUNT_MAX)
         return;
@@ -266,7 +276,11 @@ void draw_frame(const cv::Mat & frame_,
 void run_akaze2(barter<cv::Mat> & frame_barter_, std::atomic_int & t_state_, std::atomic_int & t_cmd_)
 {
     // Create an AKAZE detector and the related constructs
+#if USE_AKAZE2
+    auto detector = cv::AKAZE2::create(cv::AKAZE::DESCRIPTOR_MLDB,
+#else
     auto detector = cv::AKAZE::create(cv::AKAZE::DESCRIPTOR_MLDB,
+#endif
                                       AKAZE_DESCRIPTOR_SIZE,
                                       AKAZE_DESCRIPTOR_CH,
                                       AKAZE_THRESHOLD_MAX,
@@ -292,7 +306,11 @@ void run_akaze2(barter<cv::Mat> & frame_barter_, std::atomic_int & t_state_, std
     cv::Mat output;
 
 
+#if USE_AKAZE2
+    fps_stats fps{ "AKAZE2" };
+#else
     fps_stats fps{ "AKAZE" };
+#endif
     bool side_by_side = false, tracking = false;
     for (;; fps.tick()) {
 
