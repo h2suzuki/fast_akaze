@@ -156,7 +156,8 @@ The following macros are available in `main.c` for your experiments.
 
 
 ## 4. Bug fixes
-The project contains a few bug fixes to the original code, though nothing is severe.  The fixes can be searched by keyword “Fix?Ein the commit log.
+The project contains a few bug fixes to the original code, though nothing is severe.
+The fixes can be searched by keyword "Fix" in the commit log.
 
 
 ## 5. License
