@@ -1,0 +1,142 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{9674241A-60A1-458A-811D-4F90FA1D2DFB}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>fast_akaze</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="prebuilt_opencv300.props" />
+    <Import Project="prebuilt_opencv300_x64debug.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="prebuilt_opencv300.props" />
+    <Import Project="prebuilt_opencv300_x64release.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <AdditionalOptions>/Qvec-report:2 %(AdditionalOptions)</AdditionalOptions>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="akaze\AKAZEConfig.h" />
+    <ClInclude Include="akaze\AKAZEFeatures.h" />
+    <ClInclude Include="akaze\fed.h" />
+    <ClInclude Include="akaze\nldiffusion_functions.h" />
+    <ClInclude Include="akaze\TEvolution.h" />
+    <ClInclude Include="akaze\utils.h" />
+    <ClInclude Include="barter.hpp" />
+    <ClInclude Include="features2d_akaze2.hpp" />
+    <ClInclude Include="fps_stats.hpp" />
+    <ClInclude Include="targetver.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="akaze\akaze.cpp" />
+    <ClCompile Include="akaze\AKAZEFeatures.cpp" />
+    <ClCompile Include="akaze\fed.cpp" />
+    <ClCompile Include="akaze\nldiffusion_functions.cpp" />
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\perf_tests\Perf Test Guideline.txt" />
+    <Text Include="..\perf_tests\Profiler Results - R11.txt" />
+    <Text Include="..\perf_tests\Profiler Results - R9.5.txt" />
+    <Text Include="..\perf_tests\R0 - OpenCV3 included AKAZE.txt" />
+    <Text Include="..\perf_tests\R1 - AKAZE2 with the default setting.txt" />
+    <Text Include="..\perf_tests\R10 - Vary the number of threads.txt" />
+    <Text Include="..\perf_tests\R11 - Combine sepFilter2D and scaling.txt" />
+    <Text Include="..\perf_tests\R2 - AKAZE2 with VS2013 compiler option tweaking.txt" />
+    <Text Include="..\perf_tests\R3 - Make AKAZEFeature persistent.txt" />
+    <Text Include="..\perf_tests\R4 - Change Mat zeros to Mat create.txt" />
+    <Text Include="..\perf_tests\R5 - Remove temporary variables on heap.txt" />
+    <Text Include="..\perf_tests\R6 - Optimize the memory copies.txt" />
+    <Text Include="..\perf_tests\R7 - Make heavy loops more auto-vectorizer friendly.txt" />
+    <Text Include="..\perf_tests\R8.1 - Refactor compute_k_percentile.txt" />
+    <Text Include="..\perf_tests\R8.2 - Refactor nld_step_scalar.txt" />
+    <Text Include="..\perf_tests\R8.3 - Refactor Find_Scale_Space_Extrema.txt" />
+    <Text Include="..\perf_tests\R8.4 - Refactor Do_Subpixel_Refinement.txt" />
+    <Text Include="..\perf_tests\R8.5 - Refactor Compute_Main_Orientation.txt" />
+    <Text Include="..\perf_tests\R8.6 - Refactor Get_MLDB_Descriptor_Subset.txt" />
+    <Text Include="..\perf_tests\R8.7 - Refactor Compute_Determinant_Hessian_Response.txt" />
+    <Text Include="..\perf_tests\R8.8 - Refactor compute_k_percentile (revisited).txt" />
+    <Text Include="..\perf_tests\R9.1 - Remove OpenMP spin wait.txt" />
+    <Text Include="..\perf_tests\R9.2 - Parallelize Compute_Determinant_Hessian_Response.txt" />
+    <Text Include="..\perf_tests\R9.3 - Parallelize Create_Nonlinear_Scale_Space.txt" />
+    <Text Include="..\perf_tests\R9.4 - Tune the stride size of Compute_Descriptors.txt" />
+    <Text Include="..\perf_tests\R9.5 - Parallelize Find_Scale_Space_Extrema.txt" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
