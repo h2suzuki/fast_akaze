@@ -48,7 +48,7 @@ The optimization applies following well-known techniques:
  - Minimize cache traffic by accessing hot data timely
  - Reduce cv::Mat::ptr() by relying on the continuous memory layout of cv::Mat's data
  - Move invariants and conditionals out of the inner loops by simplifying control flow
- - Parallelize “big” tasks --- task-based concurrency with less overhead
+ - Parallelize “big?Etasks --- task-based concurrency with less overhead
 
 Some techniques are excluded by intention:
 
@@ -127,7 +127,7 @@ The project contains a few bug fixes to the original code, though nothing is sev
 
 
 ## 5. License
-This project is provided under “3-clause BSD” license, which is the same as the original license of AKAZE.
+This project is provided under "3-clause BSD" license, which is the same as the original license of AKAZE.
 
 
 ## 6. Contact Info
