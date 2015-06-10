@@ -134,6 +134,9 @@
     <Text Include="..\perf_tests\R9.4 - Tune the stride size of Compute_Descriptors.txt" />
     <Text Include="..\perf_tests\R9.5 - Parallelize Find_Scale_Space_Extrema.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\README.md" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
