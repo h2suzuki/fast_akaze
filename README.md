@@ -1,12 +1,13 @@
 
 
 # Fast A-KAZE
-This project optimizes Accelerated-KAZE feature detector and descriptor, written by Pablo Fernandez Alcantarilla and Jesus Nuevo.
+This project optimizes Accelerated-KAZE feature detector and descriptor, written
+by Pablo Fernandez Alcantarilla and Jesus Nuevo.
 
 The software has been tested with:
   - Windows 7 SP1 (x64)
   - Visual Studio 2013
-  - OpenCV3 beta
+  - OpenCV 3.0 gold
   - Webcam Logicool C525
 
 All changes are C++11 compliant, so the code is portable to the modern platforms.
@@ -32,13 +33,16 @@ A bit of explanation:
  - R9 improves concurrency, in contrast that R2 to R8 focus on the speed of single thread
  - R11 optimizes convolution filter.
 
-More information about details and design decisions are available in `perf_tests` directory. <br />The commit logs are also good source of knowing the details.
+More information about details and design decisions are available in `perf_tests` directory. <br />
+The commit logs are also good source of knowing the details.
 
 
 ## 2. Optimization policy
-The changes are made very carefully such that they will not alter the original behavior of AKAZE algorithm.
+The changes are made very carefully such that they will not alter the original behavior
+of AKAZE algorithm.
 
-In addition, most commits have been made as much self‐explanatory as possible, in hope that the correctness of a change is immediately verified by anyone.
+In addition, most commits have been made as much self-explanatory as possible, in hope that
+the correctness of a change is immediately verified by anyone.
 
 The optimization applies following well-known techniques:
 
@@ -52,12 +56,13 @@ The optimization applies following well-known techniques:
 
 Some techniques are excluded by intention:
 
- - Platform dependent code --- such as CPU affinity, thread priority, intrinsics, pragmas, …,etc.
+ - Platform dependent code --- such as CPU affinity, thread priority, intrinsics, pragmas, ...,etc.
  - Algorithm altering changes  --- such a change should first get into the original code
 
 
 ## 3. Test application
-The project contains the test application --- a small program --- to measure the performance of Fast A-KAZE code, for anyone who wishes to reproduce the test result.
+The project contains the test application --- a small program --- to measure
+the performance of Fast A-KAZE code, for anyone who wishes to reproduce the test result.
 
 ### 3.1 Getting started
 First, clone Fast A-KAZE repository and checkout the branch of concern.
@@ -66,30 +71,58 @@ First, clone Fast A-KAZE repository and checkout the branch of concern.
         $ cd fast_akaze
         $ git checkout R11
 
-Your build environment must have Visual Studio 2013 to run the application.  Other platforms should be able to compile the source code without much modification, but that is not tested.
+Your build environment must have Visual Studio 2013 to run the application.
+Other platforms should be able to compile the source code without much modification, but that is not tested.
 
 
 ### 3.2 Dependencies
 
 #### - OpenCV3
 The project requires that OpenCV3 be installed on both the build environment and the test environment.
-By default, the project assumes OpenCV is installed under `c:\opencv`.
 
-This default can be changed by editing Visual Studio property sheets under `fast_akaze\fast_akaze` directory.
+By default, this project assumes `CMAKE_INSTALL_PREFIX=C:/opencv` is defined when building OpenCV,
+which means OpenCV3 is installed under `c:\opencv`.
+
+The location can be changed by editing Visual Studio property sheets in `fast_akaze\fast_akaze` directory
 
 | Property Sheets | Element | Value to change | Remarks |
 |----------------------|--------------|-----------|--------------|
-| opencv300b.props | AdditionalIncludeDirectories | `C:\opencv\include` | The path to the include files|
-| opencv300b.props | AdditionalLibraryDirectories | `$(OPENCV_DIR)\lib` | The path to the library files|
-| opencv300b_x64debug.props | AdditionalDependencies | `opencv_calib3d300d.lib;...(omit)` | Debug DLL names to link |
-| opencv300b_x64release.props | AdditionalDependencies | `opencv_calib3d300.lib;...(omit)` | Release DLL names to link |
+| opencv300.props | AdditionalIncludeDirectories | `C:\opencv\include` | The path to the include files|
+| opencv300.props | AdditionalLibraryDirectories | `$(OPENCV_DIR)\lib` | The path to the library files|
+| opencv300_x64debug.props | AdditionalDependencies | `opencv_calib3d300d.lib;...(omit)` | Debug DLL names to link |
+| opencv300_x64release.props | AdditionalDependencies | `opencv_calib3d300.lib;...(omit)` | Release DLL names to link |
 
-The environment variable `OPENCV_DIR` should also be set properly such as `C:\opencv\x64\vc12`.
+Also, the environment variable `OPENCV_DIR` must be set such as `C:\opencv\x64\vc12`.
+
+
+##### \[OpenCV3 Prebuilt Binary\]
+
+If you have a prebuilt binary, you can unzip the binary, and move its `build` directory to `C:\opencv` so that
+`C:\opencv\x64\vc12` can be found.
+
+The project file and the property sheets are provided to work with the prebuilt binary.
+
+| Property Sheets      |  Remarks |
+|----------------------|--------------|
+| prebuilt_fast_akaze.vcxproj | The project file referring prebuilt_opencv300*.props |
+| prebuilt_opencv300.props | `$(OPENCV_DIR)\staticlib` is added to the dependencies |
+| prebuilt_opencv300_x64debug.props | `opencv_world300d.lib` and `opencv_hal300d.lib` are referred |
+| prebuilt_opencv300_x64release.props | `opencv_world300.lib` and `opencv_hal300.lib` are referred |
+
+Replace `fast_akaze.vcxproj` with `prebuilt_fast_akaze.vcxproj`, so these files can take effect.
+
+Note that the prebuilt binary provides the all-in-one library file `opencv_world300.lib`, but this file does not
+contain DLL version of `opencv_hal300.lib`(yet?).  To workaround this issue, the project will compile
+a static version of the application by this project file.
+
+
 
 #### - Webcam
 The test environment must have a webcam to feed the video stream to Fast A-KAZE.
 
-The webcam and the light source can affect the performance of video capturing very much.  If you set `ALLOW_OVERPACE` to false (described later), the test result may show only the video capturing performance instead of the performance of A-KAZE feature detector.
+The webcam and the light source can affect the performance of video capturing very much.
+If you set `ALLOW_OVERPACE` to false (described later), the test result may show only
+the video capturing performance instead of the performance of A-KAZE feature detector.
 
 
 ### 3.3 Run
@@ -119,11 +152,11 @@ The following macros are available in `main.c` for your experiments.
 | AKAZE_KPCOUNT_MAX | The upper bound for the target number of keypoints |
 | AKAZE_THRESHOLD_MIN | The allowed minimum threshold of keypoint detection |
 | AKAZE_THRESHOLD_MAX | The allowed maximum threshold of keypoint detection |
-| MATCH_HAMMING_RADIUS | The threshold to reject a matched keypoint as outlier |
+| MATCH_HAMMING_RADIUS | The threshold to reject a matched keypoint as outliers |
 
 
 ## 4. Bug fixes
-The project contains a few bug fixes to the original code, though nothing is severe.  The fixes can be searched by keyword “Fix” in the commit log.
+The project contains a few bug fixes to the original code, though nothing is severe.  The fixes can be searched by keyword “Fix?Ein the commit log.
 
 
 ## 5. License
