@@ -1219,7 +1219,7 @@ void Compute_Main_Orientation(KeyPoint& kpt, const TEvolutionV2& e)
 
   // Compute the angle of each gradient vector
   float Ang[ang_size];
-  fastAtan2(resY, resX, Ang, ang_size, false);
+  hal::fastAtan2(resY, resX, Ang, ang_size, false);
 
   // Sort by the angles; angles are labeled by slices of 0.15 radian
   const int slices = (int)(2.0 * CV_PI / 0.15f) + 1;  /* i.e. 42 */
