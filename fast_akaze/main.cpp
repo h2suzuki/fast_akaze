@@ -18,24 +18,23 @@
 
 
 // The switch to select AKAZE(the original version) or AKAZE2(the local variant)
-#define USE_AKAZE2			1
+#define USE_AKAZE2                       1
 
 
 // The number of threads to use; 0 to disable multi-threading
-#define OPENCV_THREAD_COUNT		0
+#define OPENCV_THREAD_COUNT              0
 
 // Allow akaze2 thread to run at the pace exceeding the video frame rate
-#define	ALLOW_OVERPACE			true
+#define	ALLOW_OVERPACE                  true
 
 // OpenCV event dispatcher wait time
-#define CVWAITKEY_WAIT			30  /* msec */
+#define CVWAITKEY_WAIT                   30  /* msec */
 
 
 // Logicool C525 Spec: 640x480 30fps, FOV 69 degree
-#define VIDEO_FRAME_WIDTH		640
-#define VIDEO_FRAME_HEIGHT		480
-#define VIDEO_FRAME_RATE		30  /* frames per second */
-#define	CAM_ID				0
+#define VIDEO_FRAME_WIDTH                640
+#define VIDEO_FRAME_HEIGHT               480
+#define VIDEO_FRAME_RATE	                30  /* frames per second */
 #ifdef _WIN32
 #define CAM_ID                           (cv::CAP_DSHOW + 0)
 #else
@@ -44,24 +43,24 @@
 
 
 // Debug window titles
-#define	WIN_TITLE_INPUT			"Video Input"
-#define	WIN_TITLE_OUTPUT		"KP Match"
+#define WIN_TITLE_INPUT                  "Video Input"
+#define WIN_TITLE_OUTPUT                 "KP Match"
 
 
 // Akaze parameters
-#define AKAZE_DESCRIPTOR_SIZE		486	/* 64 or 256 or 486 bits; 0 means full and 486 bits in case of three channels */
-#define AKAZE_DESCRIPTOR_CH		3	/* 1 or 2 or 3; The descriptor size must be <= 162*CH */
-#define AKAZE_NUM_OCTAVES		4
-#define AKAZE_NUM_OCTAVE_SUBLAYERS	4
+#define AKAZE_DESCRIPTOR_SIZE            486     /* 64 or 256 or 486 bits; 0 means full and 486 bits in case of three channels */
+#define AKAZE_DESCRIPTOR_CH              3       /* 1 or 2 or 3; The descriptor size must be <= 162*CH */
+#define AKAZE_NUM_OCTAVES                4
+#define AKAZE_NUM_OCTAVE_SUBLAYERS       4
 
-#define AKAZE_KPCOUNT_MIN		140
-#define AKAZE_KPCOUNT_MAX		160
-#define AKAZE_THRESHOLD_MIN		0.00001f
-#define AKAZE_THRESHOLD_MAX		0.1f
+#define AKAZE_KPCOUNT_MIN                140
+#define AKAZE_KPCOUNT_MAX                160
+#define AKAZE_THRESHOLD_MIN              0.00001f
+#define AKAZE_THRESHOLD_MAX              0.1f
 
 
 // Threshold for matching outliers
-#define MATCH_HAMMING_RADIUS		121.5f	/* 1/4 of the descriptor size */
+#define MATCH_HAMMING_RADIUS             121.5f /* 1/4 of the descriptor size */
 
 
 
