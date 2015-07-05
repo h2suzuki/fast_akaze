@@ -22,6 +22,7 @@
 #include <thread>
 #include <future>
 #include <atomic>
+#include <functional>  // std::ref
 #endif
 
 // Taken from opencv2/internal.hpp: IEEE754 constants and macros
@@ -159,7 +160,7 @@ void image_derivatives(const cv::Mat& Lsmooth, cv::Mat& Lx, cv::Mat& Ly)
   int n = (Lsmooth.rows * Lsmooth.cols) / (1 << 15) + 1;
 
   if (getNumThreads() > 1 && n > 1) {
-    auto task = async(launch::async, image_derivatives_scharrV2, Lsmooth, Lx, 1, 0);
+    auto task = async(launch::async, image_derivatives_scharrV2, ref(Lsmooth), ref(Lx), 1, 0);
 
     image_derivatives_scharrV2(Lsmooth, Ly, 0, 1);
     task.get();
@@ -191,11 +192,11 @@ float AKAZEFeaturesV2::Compute_Base_Evolution_Level(const cv::Mat& img)
 
   if (getNumThreads() > 2 && (img.rows * img.cols) > (1 << 16)) {
 
-    auto e0_Lsmooth = async(launch::async, gaussian_2D_convolutionV2, img, evolution_[0].Lsmooth, 0, 0, options_.soffset);
+    auto e0_Lsmooth = async(launch::async, gaussian_2D_convolutionV2, ref(img), ref(evolution_[0].Lsmooth), 0, 0, options_.soffset);
 
     gaussian_2D_convolutionV2(img, Lsmooth, 0, 0, 1.0f);
     image_derivatives(Lsmooth, Lx, Ly);
-    kcontrast_ = async(launch::async, compute_k_percentileV2, Lx, Ly, options_.kcontrast_percentile, modgs_, histgram_);
+    kcontrast_ = async(launch::async, compute_k_percentileV2, ref(Lx), ref(Ly), options_.kcontrast_percentile, ref(modgs_), ref(histgram_));
 
     e0_Lsmooth.get();
     Compute_Determinant_Hessian_Response(0);
