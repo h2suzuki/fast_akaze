@@ -28,19 +28,23 @@ if(CMAKE_VERSION VERSION_LESS "2.8.11")
 endif()
 
 # Needs C++11 support
-include(CheckCXXCompilerFlag)
-CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
-if (COMPILER_SUPPORTS_CXX11)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-else()
-  message(STATUS "${CMAKE_CXX_COMPILER} has no C++11 support")
+if(CMAKE_COMPILER_IS_GNUCXX)
+  include(CheckCXXCompilerFlag)
+  CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+  if (COMPILER_SUPPORTS_CXX11)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+  else()
+    message(STATUS "${CMAKE_CXX_COMPILER} has no C++11 support")
+  endif()
 endif()
 
 
 # Find threading support e.g. pthread
 find_package(Threads)
-if (THREADS_HAVE_PTHREAD_ARG)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+if(CMAKE_COMPILER_IS_GNUCXX)
+  if (THREADS_HAVE_PTHREAD_ARG)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+  endif()
 endif()
 
 find_package(OpenMP)
