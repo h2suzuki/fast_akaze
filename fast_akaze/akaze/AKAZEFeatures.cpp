@@ -816,7 +816,7 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      KeyPoint &kp{ keypoints_[i] };
+      KeyPoint &kp = keypoints_[i];
       Compute_Main_Orientation(kp, evolution_[kp.class_id]);
       Get_SURF_Descriptor_64(kp, descriptors_.ptr<float>(i));
     }
