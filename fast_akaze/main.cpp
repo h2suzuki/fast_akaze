@@ -96,7 +96,7 @@ void tune_akaze_threshold(cv::AKAZE & akaze_, int last_nkp)
     x = x + slope * (target_y - y);
 
     double threshold = exp(x * log(10.0));
-    char *s{ threshold > akaze_.getThreshold() ? "n" : "w" };  // Narrower or Wider aperture
+    const char *s{ threshold > akaze_.getThreshold() ? "n" : "w" };  // Narrower or Wider aperture
 
     if (threshold > AKAZE_THRESHOLD_MAX)
         threshold = AKAZE_THRESHOLD_MAX, s = "c"; // The aperture is closed
