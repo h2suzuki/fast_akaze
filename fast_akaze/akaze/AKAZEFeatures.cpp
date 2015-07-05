@@ -139,7 +139,8 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
   for (auto &list: tasklist_)
     list.resize(evolution_.size());
 
-  taskdeps_.resize(evolution_.size());
+  vector<atomic_int> atomic_vec(evolution_.size());
+  taskdeps_.swap(atomic_vec);
 #endif
 
 }
