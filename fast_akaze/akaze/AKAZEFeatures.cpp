@@ -415,7 +415,7 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(const int level) {
 
   dep = 0;
 
-  tasklist_[0][level] = async([=, &e, &dep]{
+  tasklist_[0][level] = async(launch::async, [=, &e, &dep]{
 
     sepFilter2D(e.Lsmooth, e.Ly, CV_32F, e.DyKx, e.DyKy);
     sepFilter2D(e.Ly, e.Lyy, CV_32F, e.DyKx, e.DyKy);
@@ -429,7 +429,7 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(const int level) {
 
   });
 
-  tasklist_[1][level] = async([=, &e, &dep]{
+  tasklist_[1][level] = async(launch::async, [=, &e, &dep]{
 
     sepFilter2D(e.Lsmooth, e.Lx, CV_32F, e.DxKx, e.DxKy);
     sepFilter2D(e.Lx, e.Lxx, CV_32F, e.DxKx, e.DxKy);
