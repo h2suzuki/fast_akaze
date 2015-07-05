@@ -413,7 +413,7 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(const int level) {
   float *lyy = e.Lyy.ptr<float>(0);
   float *ldet = e.Ldet.ptr<float>(0);
 
-  atomic_init(&dep, 0);
+  dep = 0;
 
   tasklist_[0][level] = async([=, &e, &dep]{
 
