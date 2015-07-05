@@ -36,6 +36,11 @@
 #define VIDEO_FRAME_HEIGHT		480
 #define VIDEO_FRAME_RATE		30  /* frames per second */
 #define	CAM_ID				0
+#ifdef _WIN32
+#define CAM_ID                           (cv::CAP_DSHOW + 0)
+#else
+#define CAM_ID                           0
+#endif
 
 
 // Debug window titles
@@ -421,7 +426,7 @@ bool handle_command_key(int key_, std::atomic_int & t_cmd_)
 int main(void)
 {
     // Setup the camera
-    cv::VideoCapture cap(cv::CAP_DSHOW + CAM_ID);
+    cv::VideoCapture cap(CAM_ID);
     if (!cap.isOpened()) {
         std::cerr << "Failed to connect the camera" << std::endl;
         return -1;
