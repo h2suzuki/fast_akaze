@@ -1222,10 +1222,11 @@ void Compute_Main_Orientation(KeyPoint& kpt, const TEvolutionV2& e)
   hal::fastAtan2(resY, resX, Ang, ang_size, false);
 
   // Sort by the angles; angles are labeled by slices of 0.15 radian
-  const int slices = (int)(2.0 * CV_PI / 0.15f) + 1;  /* i.e. 42 */
+  const int slices = 42;
+  const float ang_step = (float)(2.0 * CV_PI / slices);
   uint8_t slice[slices + 1];
   uint8_t sorted_idx[ang_size];
-  quantized_counting_sort(Ang, ang_size, 0.15f, (float)(2.0 * CV_PI), sorted_idx, slice);
+  quantized_counting_sort(Ang, ang_size, ang_step, (float)(2.0 * CV_PI), sorted_idx, slice);
 
   // Find the main angle by sliding a 7-slice-size window (1.05 = PI/3 approx) around the keypoint
   const int win = 7;
