@@ -1179,7 +1179,7 @@ void quantized_counting_sort(const float a[], const int n,
                              const float quantum, const float max,
                              uint8_t idx[], uint8_t cum[])
 {
-  const int nkeys = (int)(max / quantum) + 1;
+  const int nkeys = (int)(max / quantum);
 
   memset(cum, 0, nkeys + 1);
 
