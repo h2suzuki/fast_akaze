@@ -1165,14 +1165,14 @@ void Sample_Derivative_Response_Radius6(const Mat &Lx, const Mat &Ly,
  * @brief This function sorts a[] by quantized float values
  * @param a[] Input floating point array to sort
  * @param n The length of a[]
- * @param quantum The interval to convert a[]'s float values to integers
- * @param max The upper bound of a[]'s values
- * @param idx[] Output array of the indices: a[idx[i]] is a sorted array
+ * @param quantum The interval to convert a[i]'s float values to integers
+ * @param max The upper bound of a[], meaning a[i] must be in [0, max]
+ * @param idx[] Output array of the indices: a[idx[i]] forms a sorted array
  * @param cum[] Output array of the starting indices of quantized floats
  * @note The values of a[] in [k*quantum, (k + 1)*quantum) is labeled by
  * the integer k, which is calculated by floor(a[i]/quantum).  After sorting,
  * the values from a[idx[cum[k]]] to a[idx[cum[k+1]-1]] are all labeled by k.
- * This sorting is unstable in order to reduce the computation.
+ * This sorting is unstable to reduce the memory access.
  */
 static inline
 void quantized_counting_sort(const float a[], const int n,
@@ -1181,6 +1181,7 @@ void quantized_counting_sort(const float a[], const int n,
 {
   const int nkeys = (int)(max / quantum);
 
+  // The size of cum[] must be nkeys + 1
   memset(cum, 0, nkeys + 1);
 
   // Count up the quantized values
@@ -1228,7 +1229,7 @@ void Compute_Main_Orientation(KeyPoint& kpt, const TEvolutionV2& e)
   uint8_t sorted_idx[ang_size];
   quantized_counting_sort(Ang, ang_size, ang_step, (float)(2.0 * CV_PI), sorted_idx, slice);
 
-  // Find the main angle by sliding a 7-slice-size window (1.05 = PI/3 approx) around the keypoint
+  // Find the main angle by sliding a window of 7-slice size(=PI/3) around the keypoint
   const int win = 7;
 
   float maxX = 0.0f, maxY = 0.0f;
