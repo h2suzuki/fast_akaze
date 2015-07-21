@@ -197,7 +197,7 @@ float AKAZEFeaturesV2::Compute_Base_Evolution_Level(const cv::Mat& img)
 
     gaussian_2D_convolutionV2(img, Lsmooth, 0, 0, 1.0f);
     image_derivatives(Lsmooth, Lx, Ly);
-    kcontrast_ = async(launch::async, compute_k_percentileV2, ref(Lx), ref(Ly), options_.kcontrast_percentile, ref(modgs_), ref(histgram_));
+    kcontrast_ = async(launch::async, compute_k_percentileV2, Lx, Ly, options_.kcontrast_percentile, ref(modgs_), ref(histgram_));
 
     e0_Lsmooth.get();
     Compute_Determinant_Hessian_Response(0);
