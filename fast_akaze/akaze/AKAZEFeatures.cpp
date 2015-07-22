@@ -1121,43 +1121,39 @@ void Sample_Derivative_Response_Radius6(const Mat &Lx, const Mat &Ly,
         { 0.00142946f, 0.00131956f, 0.00103800f, 0.00069579f, 0.00039744f, 0.00019346f, 0.00008024f }
     };
     static const int id[] = { 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6 };
+    static const struct gtable
+    {
+      float weight[109];
+      int8_t xidx[109];
+      int8_t yidx[109];
 
-    const int sz = 109;
-    static float gweight[sz];
-    static int8_t xidx[sz];
-    static int8_t yidx[sz];
-
-    static bool initialized = false;
-
-
-  if (!initialized) {
-    int k = 0;
-
-    // Generate the indices
-    for (int i = -6; i <= 6; ++i) {
-      for (int j = -6; j <= 6; ++j) {
-        if (i*i + j*j < 36) {
-          gweight[k] = gauss25[id[i + 6]][id[j + 6]];
-          yidx[k] = i;
-          xidx[k] = j;
-          ++k;
+      explicit gtable(void)
+      {
+        // Generate the weight and indices by one-time initialization
+        int k = 0;
+        for (int i = -6; i <= 6; ++i) {
+          for (int j = -6; j <= 6; ++j) {
+            if (i*i + j*j < 36) {
+              weight[k] = gauss25[id[i + 6]][id[j + 6]];
+              yidx[k] = i;
+              xidx[k] = j;
+              ++k;
+            }
+          }
         }
+        CV_DbgAssert(k == 109);
       }
-    }
-    CV_DbgAssert(k == sz);
-
-    initialized = true;
-  }
+    } g;
 
   const float * lx = Lx.ptr<float>(0);
   const float * ly = Ly.ptr<float>(0);
   int cols = Lx.cols;
 
-  for (int i = 0; i < sz; i++) {
-    int j = (y0 + yidx[i] * scale) * cols + (x0 + xidx[i] * scale);
+  for (int i = 0; i < 109; i++) {
+    int j = (y0 + g.yidx[i] * scale) * cols + (x0 + g.xidx[i] * scale);
 
-    resX[i] = gweight[i] * lx[j];
-    resY[i] = gweight[i] * ly[j];
+    resX[i] = g.weight[i] * lx[j];
+    resY[i] = g.weight[i] * ly[j];
   }
 }
 
