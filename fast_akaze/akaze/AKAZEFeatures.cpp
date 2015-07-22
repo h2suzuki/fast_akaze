@@ -158,9 +158,7 @@ void image_derivatives(const cv::Mat& Lsmooth, cv::Mat& Lx, cv::Mat& Ly)
 {
 #ifdef AKAZE_USE_CPP11_THREADING
 
-  int n = (Lsmooth.rows * Lsmooth.cols) / (1 << 15) + 1;
-
-  if (getNumThreads() > 1 && n > 1) {
+  if (getNumThreads() > 1 && (Lsmooth.rows * Lsmooth.cols) > (1 << 15)) {
     auto task = async(launch::async, image_derivatives_scharrV2, ref(Lsmooth), ref(Lx), 1, 0);
 
     image_derivatives_scharrV2(Lsmooth, Ly, 0, 1);
