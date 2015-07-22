@@ -1882,6 +1882,11 @@ void MLDB_Full_Descriptor_InvokerV2::Get_MLDB_Full_Descriptor(const KeyPoint& kp
       MLDB_Fill_Values(values, sample_step, kpt.class_id, xf, yf, co, si, scale);
       MLDB_Binary_Comparisons(values, desc, val_count, dpos);
   }
+
+  // Clear the uninitialized bits of the last byte
+  int remain = dpos % 8;
+  if (remain > 0)
+    desc[dpos >> 3] &= (0xff >> (8 - remain));
 }
 
 
