@@ -1824,14 +1824,14 @@ void MLDB_Full_Descriptor_InvokerV2::MLDB_Fill_Values(float* values, int sample_
 void MLDB_Full_Descriptor_InvokerV2::MLDB_Binary_Comparisons(float* values, unsigned char* desc,
                                                            int count, int& dpos) const {
     int chan = options_.descriptor_channels;
-    int* ivalues = (int*) values;
+    int32_t * ivalues = (int32_t *) values;
     for(int i = 0; i < count * chan; i++) {
         ivalues[i] = CV_TOGGLE_FLT(ivalues[i]);
     }
 
     for(int pos = 0; pos < chan; pos++) {
         for (int i = 0; i < count; i++) {
-            int ival = ivalues[chan * i + pos];
+            int32_t ival = ivalues[chan * i + pos];
             for (int j = i + 1; j < count; j++) {
                 if (ival > ivalues[chan * j + pos]) {
                     desc[dpos >> 3] |= (1 << (dpos & 7));
