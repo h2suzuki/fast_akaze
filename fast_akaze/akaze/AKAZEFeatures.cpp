@@ -168,12 +168,11 @@ void image_derivatives(const cv::Mat& Lsmooth, cv::Mat& Lx, cv::Mat& Ly)
     return;
   }
 
-#else
+  // Fall back to the serial path if Lsmooth is small or OpenCV parallelization is disabled
+#endif
 
   image_derivatives_scharrV2(Lsmooth, Lx, 1, 0);
   image_derivatives_scharrV2(Lsmooth, Ly, 0, 1);
-
-#endif
 }
 
 
