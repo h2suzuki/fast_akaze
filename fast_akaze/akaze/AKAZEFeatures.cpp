@@ -543,20 +543,26 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoin
           continue;
         }
 
-        // Compare response with the lower scale
-        if (i > 0 && find_neighbor_point(point, kpts_aux[i - 1], 0, idx)) {
-          if (point.response > kpts_aux[i - 1][idx].response) {
-            kpts_aux[i - 1][idx].class_id = -1;  // Mark it as deleted
-            kpts_aux[i].push_back(point);  // Insert the new point to the right layer
-          }
-          continue;
-        }
-
         kpts_aux[i].push_back(point);  // A good keypoint candidate is found
       }
       prev = curr;
       curr = next;
       next += step.Ldet.cols;
+    }
+  }
+
+  // Filter points with the lower scale level
+  for (int i = 1; i < (int)kpts_aux.size(); i++) {
+    for (int j = 0; j < (int)kpts_aux[i].size(); j++) {
+      KeyPoint& pt = kpts_aux[i][j];
+
+      int idx = 0;
+      if (find_neighbor_point(pt, kpts_aux[i - 1], 0, idx)) {
+        if (pt.response > kpts_aux[i - 1][idx].response)
+          kpts_aux[i - 1][idx].class_id = -1;
+        else
+          kpts_aux[i][j].class_id = -1;
+      }
     }
   }
 
