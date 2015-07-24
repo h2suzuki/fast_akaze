@@ -579,7 +579,7 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoin
 }
 
 
-#ifdef AKAZE_USE_CPP11_THREADING
+#ifndef AKAZE_USE_CPP11_THREADING
 
 /* ************************************************************************* */
 /**
