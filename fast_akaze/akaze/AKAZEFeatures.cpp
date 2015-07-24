@@ -562,14 +562,13 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoin
       if (find_neighbor_point(pt, kpts_aux[i - 1], 0, idx)) {
         if (pt.response > kpts_aux[i - 1][idx].response)
           kpts_aux[i - 1][idx].class_id = -1;
-        else
-          kpts_aux[i][j].class_id = -1;
+        // else this pt may be pruned by the upper scale
       }
     }
   }
 
-  // Now filter points with the upper scale level
-  for (int i = 0; i < (int)kpts_aux.size() - 1; i++) {
+  // Now filter points with the upper scale level (the other direction)
+  for (int i = (int)kpts_aux.size() - 2; i >= 0; i--) {
     for (int j = 0; j < (int)kpts_aux[i].size(); j++) {
       KeyPoint& pt = kpts_aux[i][j];
 
@@ -577,10 +576,9 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoin
           continue;
 
       int idx = 0;
-      if (find_neighbor_point(pt, kpts_aux[i + 1], j + 1, idx)) {
-        if (pt.response < kpts_aux[i + 1][idx].response)
-          pt.class_id = -1; // Non-extremum; mark this point deleted
-      }
+      if (find_neighbor_point(pt, kpts_aux[i + 1], 0, idx))
+        if (pt.response > kpts_aux[i + 1][idx].response)
+          kpts_aux[i + 1][idx].class_id = -1;
     }
   }
 }
@@ -684,14 +682,13 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
       if (find_neighbor_point(pt, kpts_aux[i - 1], 0, idx)) {
         if (pt.response > kpts_aux[i - 1][idx].response)
           kpts_aux[i - 1][idx].class_id = -1;
-        else
-          kpts_aux[i][j].class_id = -1;
+        // else this pt may be pruned by the upper scale
       }
     }
   }
 
-  // Now filter points with the upper scale level
-  for (int i = 0; i < (int)kpts_aux.size() - 1; i++) {
+  // Now filter points with the upper scale level (the other direction)
+  for (int i = (int)kpts_aux.size() - 2; i >= 0; i--) {
     for (int j = 0; j < (int)kpts_aux[i].size(); j++) {
       KeyPoint& pt = kpts_aux[i][j];
 
@@ -699,10 +696,9 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
           continue; // Skip a deleted point
 
       int idx = 0;
-      if (find_neighbor_point(pt, kpts_aux[i + 1], j + 1, idx)) {
-        if (pt.response < kpts_aux[i + 1][idx].response)
-          pt.class_id = -1; // Non extremum; mark this point deleted
-      }
+      if (find_neighbor_point(pt, kpts_aux[i + 1], 0, idx))
+        if (pt.response > kpts_aux[i + 1][idx].response)
+          kpts_aux[i + 1][idx].class_id = -1;
     }
   }
 }
