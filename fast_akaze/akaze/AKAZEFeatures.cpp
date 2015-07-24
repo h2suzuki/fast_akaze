@@ -482,6 +482,28 @@ bool find_neighbor_point(const KeyPoint &p, const vector<KeyPoint> &v, const int
     return false;
 }
 
+inline
+bool find_neighbor_point_inv(const KeyPoint &p, const vector<KeyPoint> &v, const int offset, int &idx)
+{
+    const int sz = (int)v.size();
+
+    for (int i = offset; i < sz; i++) {
+
+        if (v[i].class_id == -1) // Skip a deleted point
+            continue;
+
+        float dx = p.pt.x - v[i].pt.x;
+        float dy = p.pt.y - v[i].pt.y;
+        if (dx * dx + dy * dy <= v[i].size * v[i].size) {
+            idx = i;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
 /* ************************************************************************* */
 /**
  * @brief This method finds extrema in the nonlinear scale space
