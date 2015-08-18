@@ -90,9 +90,9 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       step.Lxx.create(level_height, level_width, CV_32FC1);
       step.Lxy.create(level_height, level_width, CV_32FC1);
       step.Lyy.create(level_height, level_width, CV_32FC1);
-      step.esigma = options_.soffset*pow(2.f, (float)j / options_.nsublevels + i);
+      step.esigma = options_.soffset * pow(2.f, (float)j / options_.nsublevels + i);
       step.sigma_size = fRoundV2(step.esigma * options_.derivative_factor / power);  // In fact sigma_size only depends on j
-      step.etime = 0.5f*(step.esigma*step.esigma);
+      step.etime = 0.5f * (step.esigma * step.esigma);
       step.octave = i;
       step.sublevel = j;
       step.octave_ratio = (float)power;
@@ -744,8 +744,8 @@ void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<std::vector<KeyPoint>>&
       // Compute the Hessian
       float Dxx = ldet[ y     *cols + x + 1] + ldet[ y     *cols + x - 1] - 2.0f * ldet[y*cols + x];
       float Dyy = ldet[(y + 1)*cols + x    ] + ldet[(y - 1)*cols + x    ] - 2.0f * ldet[y*cols + x];
-      float Dxy = 0.25f * (ldet[(y + 1)*cols + x + 1] + ldet[(y - 1)*cols + x - 1]
-                         - ldet[(y - 1)*cols + x + 1] - ldet[(y + 1)*cols + x - 1]);
+      float Dxy = 0.25f * (ldet[(y + 1)*cols + x + 1] + ldet[(y - 1)*cols + x - 1] -
+                          ldet[(y - 1)*cols + x + 1] - ldet[(y + 1)*cols + x - 1]);
 
       // Solve the linear system
       Matx22f A{ Dxx, Dxy,
