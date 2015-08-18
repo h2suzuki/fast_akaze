@@ -96,53 +96,43 @@ int fed_tau_by_cycle_timeV2(const float& t, const float& tau_max,
  */
 inline
 int fed_tau_internalV2(const int& n, const float& scale, const float& tau_max,
-                     const bool& reordering, std::vector<float> &tau) {
-  float c = 0.0, d = 0.0;     // Time savers
-  vector<float> tauh;    // Helper vector for unsorted taus
-
+                       const bool& reordering, std::vector<float> &tau)
+{
   if (n <= 0) {
     return 0;
   }
 
-  // Allocate memory for the time step size
-  tau.resize(n);
-
-  if (reordering) {
-    tauh.resize(n);
-  }
+  // Allocate memory for the time step size (Helper vector for unsorted taus)
+  vector<float> tauh(n);
 
   // Compute time saver
-  c = 1.0f / (4.0f * (float)n + 2.0f);
-  d = scale * tau_max / 2.0f;
+  float c = 1.0f / (4.0f * n + 2.0f);
+  float d = scale * tau_max / 2.0f;
 
   // Set up originally ordered tau vector
   for (int k = 0; k < n; ++k) {
-    float h = cosf((float)CV_PI * (2.0f * (float)k + 1.0f) * c);
-
-    if (reordering) {
-      tauh[k] = d / (h * h);
-    }
-    else {
-      tau[k] = d / (h * h);
-    }
+    float h = cos((float)CV_PI * (2.0f * k + 1.0f) * c);
+    tauh[k] = d / (h * h);
   }
 
-  // Permute list of time steps according to chosen reordering function
-  int kappa = 0, prime = 0;
+  if (!reordering || n == 1) {
+      std::swap(tau, tauh);
+  }
+  else {
+    // Permute list of time steps according to chosen reordering function
 
-  if (reordering == true) {
     // Choose kappa cycle with k = n/2
     // This is a heuristic. We can use Leja ordering instead!!
-    kappa = n / 2;
+    int kappa = n / 2;
 
     // Get modulus for permutation
-    prime = n + 1;
+    int prime = n + 1;
 
-    while (!fed_is_prime_internalV2(prime)) {
+    while (!fed_is_prime_internalV2(prime))
       prime++;
-    }
 
     // Perform permutation
+    tau.resize(n);
     for (int k = 0, l = 0; l < n; ++k, ++l) {
       int index = 0;
       while ((index = ((k+1)*kappa) % prime - 1) >= n) {
