@@ -22,6 +22,7 @@
 #include <thread>
 #include <future>
 #include <atomic>
+#include <functional>  // std::ref
 #endif
 
 // Taken from opencv2/internal.hpp: IEEE754 constants and macros
@@ -138,7 +139,8 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
   for (auto &list: tasklist_)
     list.resize(evolution_.size());
 
-  taskdeps_.resize(evolution_.size());
+  vector<atomic_int> atomic_vec(evolution_.size());
+  taskdeps_.swap(atomic_vec);
 #endif
 
 }
@@ -157,7 +159,7 @@ void image_derivatives(const cv::Mat& Lsmooth, cv::Mat& Lx, cv::Mat& Ly)
 #ifdef AKAZE_USE_CPP11_THREADING
 
   if (getNumThreads() > 1 && (Lsmooth.rows * Lsmooth.cols) > (1 << 15)) {
-    auto task = async(launch::async, image_derivatives_scharrV2, Lsmooth, Lx, 1, 0);
+    auto task = async(launch::async, image_derivatives_scharrV2, ref(Lsmooth), ref(Lx), 1, 0);
 
     image_derivatives_scharrV2(Lsmooth, Ly, 0, 1);
     task.get();
@@ -188,11 +190,11 @@ float AKAZEFeaturesV2::Compute_Base_Evolution_Level(const cv::Mat& img)
 
   if (getNumThreads() > 2 && (img.rows * img.cols) > (1 << 16)) {
 
-    auto e0_Lsmooth = async(launch::async, gaussian_2D_convolutionV2, img, evolution_[0].Lsmooth, 0, 0, options_.soffset);
+    auto e0_Lsmooth = async(launch::async, gaussian_2D_convolutionV2, ref(img), ref(evolution_[0].Lsmooth), 0, 0, options_.soffset);
 
     gaussian_2D_convolutionV2(img, Lsmooth, 0, 0, 1.0f);
     image_derivatives(Lsmooth, Lx, Ly);
-    kcontrast_ = async(launch::async, compute_k_percentileV2, Lx, Ly, options_.kcontrast_percentile, modgs_, histgram_);
+    kcontrast_ = async(launch::async, compute_k_percentileV2, Lx, Ly, options_.kcontrast_percentile, ref(modgs_), ref(histgram_));
 
     e0_Lsmooth.get();
     Compute_Determinant_Hessian_Response(0);
@@ -409,9 +411,9 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(const int level) {
   float *lyy = e.Lyy.ptr<float>(0);
   float *ldet = e.Ldet.ptr<float>(0);
 
-  atomic_init(&dep, 0);
+  dep = 0;
 
-  tasklist_[0][level] = async([=, &e, &dep]{
+  tasklist_[0][level] = async(launch::async, [=, &e, &dep]{
 
     sepFilter2D(e.Lsmooth, e.Ly, CV_32F, e.DyKx, e.DyKy);
     sepFilter2D(e.Ly, e.Lyy, CV_32F, e.DyKx, e.DyKy);
@@ -425,7 +427,7 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(const int level) {
 
   });
 
-  tasklist_[1][level] = async([=, &e, &dep]{
+  tasklist_[1][level] = async(launch::async, [=, &e, &dep]{
 
     sepFilter2D(e.Lsmooth, e.Lx, CV_32F, e.DxKx, e.DxKy);
     sepFilter2D(e.Lx, e.Lxx, CV_32F, e.DxKx, e.DxKy);
@@ -813,7 +815,7 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      KeyPoint &kp{ keypoints_[i] };
+      KeyPoint &kp = keypoints_[i];
       Compute_Main_Orientation(kp, evolution_[kp.class_id]);
       Get_SURF_Descriptor_64(kp, descriptors_.ptr<float>(i));
     }
