@@ -115,18 +115,15 @@ int fed_tau_internalV2(const int& n, const float& scale, const float& tau_max,
   // Set up originally ordered tau vector
   for (int k = 0; k < n; ++k) {
     float h = cos((float)CV_PI * (2.0f * k + 1.0f) * c);
-
-    if (reordering) {
-      tauh[k] = d / (h * h);
-    }
-    else {
-      tau[k] = d / (h * h);
-    }
+    tauh[k] = d / (h * h);
   }
 
-  // Permute list of time steps according to chosen reordering function
+  if (!reordering || n == 1) {
+      std::swap(tau, tauh);
+  }
+  else {
+    // Permute list of time steps according to chosen reordering function
 
-  if (reordering == true) {
     // Choose kappa cycle with k = n/2
     // This is a heuristic. We can use Leja ordering instead!!
     int kappa = n / 2;
