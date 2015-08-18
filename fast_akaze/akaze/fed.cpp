@@ -98,18 +98,15 @@ inline
 int fed_tau_internalV2(const int& n, const float& scale, const float& tau_max,
                        const bool& reordering, std::vector<float> &tau)
 {
-  vector<float> tauh;    // Helper vector for unsorted taus
-
   if (n <= 0) {
     return 0;
   }
 
+  // Allocate memory for the time step size (Helper vector for unsorted taus)
+  vector<float> tauh(n);
   // Allocate memory for the time step size
   tau.resize(n);
 
-  if (reordering) {
-    tauh.resize(n);
-  }
 
   // Compute time saver
   float c = 1.0f / (4.0f * n + 2.0f);
