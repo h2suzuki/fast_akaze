@@ -104,9 +104,6 @@ int fed_tau_internalV2(const int& n, const float& scale, const float& tau_max,
 
   // Allocate memory for the time step size (Helper vector for unsorted taus)
   vector<float> tauh(n);
-  // Allocate memory for the time step size
-  tau.resize(n);
-
 
   // Compute time saver
   float c = 1.0f / (4.0f * n + 2.0f);
@@ -135,6 +132,7 @@ int fed_tau_internalV2(const int& n, const float& scale, const float& tau_max,
       prime++;
 
     // Perform permutation
+    tau.resize(n);
     for (int k = 0, l = 0; l < n; ++k, ++l) {
       int index = 0;
       while ((index = ((k+1)*kappa) % prime - 1) >= n) {
