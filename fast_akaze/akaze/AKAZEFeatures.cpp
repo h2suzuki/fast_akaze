@@ -25,6 +25,7 @@
 #include <thread>
 #include <future>
 #include <atomic>
+#include <functional>  // std::ref
 #endif
 
 #ifdef AKAZE_USE_CVMARKER
@@ -152,7 +153,8 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
   for (auto &list: tasklist_)
     list.resize(evolution_.size());
 
-  taskdeps_.resize(evolution_.size());
+  vector<atomic_int> atomic_vec(evolution_.size());
+  taskdeps_.swap(atomic_vec);
 #endif
 
 }
@@ -170,9 +172,7 @@ void image_derivatives(const cv::Mat& Lsmooth, cv::Mat& Lx, cv::Mat& Ly)
 {
 #ifdef AKAZE_USE_CPP11_THREADING
 
-  int n = (Lsmooth.rows * Lsmooth.cols) / (1 << 15) + 1;
-
-  if (getNumThreads() > 1 && n > 1) {
+  if (getNumThreads() > 1 && (Lsmooth.rows * Lsmooth.cols) > (1 << 15)) {
 #ifdef AKAZE_USE_CVMARKER
     span s(cv_series, _T("derivatives:Ly"));
 
@@ -181,7 +181,7 @@ void image_derivatives(const cv::Mat& Lsmooth, cv::Mat& Lx, cv::Mat& Ly)
         image_derivatives_scharrV2(Lsmooth, Lx, 1, 0);
     });
 #else
-    auto task = async(launch::async, image_derivatives_scharrV2, Lsmooth, Lx, 1, 0);
+    auto task = async(launch::async, image_derivatives_scharrV2, ref(Lsmooth), ref(Lx), 1, 0);
 #endif
 
     image_derivatives_scharrV2(Lsmooth, Ly, 0, 1);
@@ -189,12 +189,11 @@ void image_derivatives(const cv::Mat& Lsmooth, cv::Mat& Lx, cv::Mat& Ly)
     return;
   }
 
-#else
+  // Fall back to the serial path if Lsmooth is small or OpenCV parallelization is disabled
+#endif
 
   image_derivatives_scharrV2(Lsmooth, Lx, 1, 0);
   image_derivatives_scharrV2(Lsmooth, Ly, 0, 1);
-
-#endif
 }
 
 
@@ -214,11 +213,11 @@ float AKAZEFeaturesV2::Compute_Base_Evolution_Level(const cv::Mat& img)
 
   if (getNumThreads() > 2 && (img.rows * img.cols) > (1 << 16)) {
 
-    auto e0_Lsmooth = async(launch::async, gaussian_2D_convolutionV2, img, evolution_[0].Lsmooth, 0, 0, options_.soffset);
+    auto e0_Lsmooth = async(launch::async, gaussian_2D_convolutionV2, ref(img), ref(evolution_[0].Lsmooth), 0, 0, options_.soffset);
 
     gaussian_2D_convolutionV2(img, Lsmooth, 0, 0, 1.0f);
     image_derivatives(Lsmooth, Lx, Ly);
-    kcontrast_ = async(launch::async, compute_k_percentileV2, Lx, Ly, options_.kcontrast_percentile, modgs_, histgram_);
+    kcontrast_ = async(launch::async, compute_k_percentileV2, Lx, Ly, options_.kcontrast_percentile, ref(modgs_), ref(histgram_));
 
     e0_Lsmooth.get();
     Compute_Determinant_Hessian_Response(0);
@@ -457,9 +456,9 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(const int level) {
   float *lyy = e.Lyy.ptr<float>(0);
   float *ldet = e.Ldet.ptr<float>(0);
 
-  atomic_init(&dep, 0);
+  dep = 0;
 
-  tasklist_[0][level] = async([=, &e, &dep]{
+  tasklist_[0][level] = async(launch::async, [=, &e, &dep]{
 
 #ifdef AKAZE_USE_CVMARKER
     span s(cv_series, (CString{ _T("Lyy:") } +to_string(level).c_str()));
@@ -477,7 +476,7 @@ void AKAZEFeaturesV2::Compute_Determinant_Hessian_Response(const int level) {
 
   });
 
-  tasklist_[1][level] = async([=, &e, &dep]{
+  tasklist_[1][level] = async(launch::async, [=, &e, &dep]{
 
 #ifdef AKAZE_USE_CVMARKER
     span s(cv_series, (CString{ _T("Lxx:") } +to_string(level).c_str()));
@@ -599,15 +598,6 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoin
           continue;
         }
 
-        // Compare response with the lower scale
-        if (i > 0 && find_neighbor_point(point, kpts_aux[i - 1], 0, idx)) {
-          if (point.response > kpts_aux[i - 1][idx].response) {
-            kpts_aux[i - 1][idx].class_id = -1;  // Mark it as deleted
-            kpts_aux[i].push_back(point);  // Insert the new point to the right layer
-          }
-          continue;
-        }
-
         kpts_aux[i].push_back(point);  // A good keypoint candidate is found
       }
       prev = curr;
@@ -616,8 +606,21 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoin
     }
   }
 
-  // Now filter points with the upper scale level
-  for (int i = 0; i < (int)kpts_aux.size() - 1; i++) {
+  // Filter points with the lower scale level
+  for (int i = 1; i < (int)kpts_aux.size(); i++) {
+    for (int j = 0; j < (int)kpts_aux[i].size(); j++) {
+      KeyPoint& pt = kpts_aux[i][j];
+
+      int idx = 0;
+      if (find_neighbor_point(pt, kpts_aux[i - 1], 0, idx))
+        if (pt.response > kpts_aux[i - 1][idx].response)
+          kpts_aux[i - 1][idx].class_id = -1;
+        // else this pt may be pruned by the upper scale
+    }
+  }
+
+  // Now filter points with the upper scale level (the other direction)
+  for (int i = (int)kpts_aux.size() - 2; i >= 0; i--) {
     for (int j = 0; j < (int)kpts_aux[i].size(); j++) {
       KeyPoint& pt = kpts_aux[i][j];
 
@@ -625,10 +628,9 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoin
           continue;
 
       int idx = 0;
-      if (find_neighbor_point(pt, kpts_aux[i + 1], j + 1, idx)) {
-        if (pt.response < kpts_aux[i + 1][idx].response)
-          pt.class_id = -1; // Non-extremum; mark this point deleted
-      }
+      if (find_neighbor_point(pt, kpts_aux[i + 1], 0, idx))
+        if (pt.response > kpts_aux[i + 1][idx].response)
+          kpts_aux[i + 1][idx].class_id = -1;
     }
   }
 }
@@ -737,30 +739,28 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
       KeyPoint& pt = kpts_aux[i][j];
 
       int idx = 0;
-      if (find_neighbor_point(pt, kpts_aux[i - 1], 0, idx)) {
+      if (find_neighbor_point(pt, kpts_aux[i - 1], 0, idx))
         if (pt.response > kpts_aux[i - 1][idx].response)
           kpts_aux[i - 1][idx].class_id = -1;
-        else
-          kpts_aux[i][j].class_id = -1;
-      }
+        // else this pt may be pruned by the upper scale
     }
   }
 
-  // Now filter points with the upper scale level
-  for (int i = 0; i < (int)kpts_aux.size() - 1; i++) {
+  // Now filter points with the upper scale level (the other direction)
+  for (int i = (int)kpts_aux.size() - 2; i >= 0; i--) {
     for (int j = 0; j < (int)kpts_aux[i].size(); j++) {
       KeyPoint& pt = kpts_aux[i][j];
 
-      if (pt.class_id == -1)
-          continue; // Skip a deleted point
+      if (pt.class_id == -1) // Skip a deleted point
+          continue;
 
       int idx = 0;
-      if (find_neighbor_point(pt, kpts_aux[i + 1], j + 1, idx)) {
-        if (pt.response < kpts_aux[i + 1][idx].response)
-          pt.class_id = -1; // Non extremum; mark this point deleted
-      }
+      if (find_neighbor_point(pt, kpts_aux[i + 1], 0, idx))
+        if (pt.response > kpts_aux[i + 1][idx].response)
+          kpts_aux[i + 1][idx].class_id = -1;
     }
   }
+
 }
 
 #else
@@ -884,7 +884,7 @@ public:
   {
     for (int i = range.start; i < range.end; i++)
     {
-      KeyPoint &kp{ keypoints_[i] };
+      KeyPoint &kp = keypoints_[i];
       Compute_Main_Orientation(kp, evolution_[kp.class_id]);
       Get_SURF_Descriptor_64(kp, descriptors_.ptr<float>(i));
     }
@@ -1040,6 +1040,7 @@ public:
     {
       Compute_Main_Orientation(keypoints_[i], evolution_[keypoints_[i].class_id]);
       Get_MLDB_Full_Descriptor(keypoints_[i], descriptors_.ptr<unsigned char>(i));
+      keypoints_[i].angle *= (float)(180.0/CV_PI);
     }
   }
 
@@ -1080,6 +1081,7 @@ public:
     {
       Compute_Main_Orientation(keypoints_[i], evolution_[keypoints_[i].class_id]);
       Get_MLDB_Descriptor_Subset(keypoints_[i], descriptors_.ptr<unsigned char>(i));
+      keypoints_[i].angle *= (float)(180.0/CV_PI);
     }
   }
 
@@ -1187,43 +1189,39 @@ void Sample_Derivative_Response_Radius6(const Mat &Lx, const Mat &Ly,
         { 0.00142946f, 0.00131956f, 0.00103800f, 0.00069579f, 0.00039744f, 0.00019346f, 0.00008024f }
     };
     static const int id[] = { 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6 };
+    static const struct gtable
+    {
+      float weight[109];
+      int8_t xidx[109];
+      int8_t yidx[109];
 
-    const int sz = 109;
-    static float gweight[sz];
-    static int8_t xidx[sz];
-    static int8_t yidx[sz];
-
-    static bool initialized = false;
-
-
-  if (!initialized) {
-    int k = 0;
-
-    // Generate the indices
-    for (int i = -6; i <= 6; ++i) {
-      for (int j = -6; j <= 6; ++j) {
-        if (i*i + j*j < 36) {
-          gweight[k] = gauss25[id[i + 6]][id[j + 6]];
-          yidx[k] = i;
-          xidx[k] = j;
-          ++k;
+      explicit gtable(void)
+      {
+        // Generate the weight and indices by one-time initialization
+        int k = 0;
+        for (int i = -6; i <= 6; ++i) {
+          for (int j = -6; j <= 6; ++j) {
+            if (i*i + j*j < 36) {
+              weight[k] = gauss25[id[i + 6]][id[j + 6]];
+              yidx[k] = i;
+              xidx[k] = j;
+              ++k;
+            }
+          }
         }
+        CV_DbgAssert(k == 109);
       }
-    }
-    CV_DbgAssert(k == sz);
-
-    initialized = true;
-  }
+    } g;
 
   const float * lx = Lx.ptr<float>(0);
   const float * ly = Ly.ptr<float>(0);
   int cols = Lx.cols;
 
-  for (int i = 0; i < sz; i++) {
-    int j = (y0 + yidx[i] * scale) * cols + (x0 + xidx[i] * scale);
+  for (int i = 0; i < 109; i++) {
+    int j = (y0 + g.yidx[i] * scale) * cols + (x0 + g.xidx[i] * scale);
 
-    resX[i] = gweight[i] * lx[j];
-    resY[i] = gweight[i] * ly[j];
+    resX[i] = g.weight[i] * lx[j];
+    resY[i] = g.weight[i] * ly[j];
   }
 }
 
@@ -1232,22 +1230,23 @@ void Sample_Derivative_Response_Radius6(const Mat &Lx, const Mat &Ly,
  * @brief This function sorts a[] by quantized float values
  * @param a[] Input floating point array to sort
  * @param n The length of a[]
- * @param quantum The interval to convert a[]'s float values to integers
- * @param max The upper bound of a[]'s values
- * @param idx[] Output array of the indices: a[idx[i]] is a sorted array
+ * @param quantum The interval to convert a[i]'s float values to integers
+ * @param max The upper bound of a[], meaning a[i] must be in [0, max]
+ * @param idx[] Output array of the indices: a[idx[i]] forms a sorted array
  * @param cum[] Output array of the starting indices of quantized floats
  * @note The values of a[] in [k*quantum, (k + 1)*quantum) is labeled by
  * the integer k, which is calculated by floor(a[i]/quantum).  After sorting,
  * the values from a[idx[cum[k]]] to a[idx[cum[k+1]-1]] are all labeled by k.
- * This sorting is unstable in order to reduce the computation.
+ * This sorting is unstable to reduce the memory access.
  */
 static inline
 void quantized_counting_sort(const float a[], const int n,
                              const float quantum, const float max,
                              uint8_t idx[], uint8_t cum[])
 {
-  const int nkeys = (int)(max / quantum) + 1;
+  const int nkeys = (int)(max / quantum);
 
+  // The size of cum[] must be nkeys + 1
   memset(cum, 0, nkeys + 1);
 
   // Count up the quantized values
@@ -1290,15 +1289,16 @@ void Compute_Main_Orientation(KeyPoint& kpt, const TEvolutionV2& e)
 
   // Compute the angle of each gradient vector
   float Ang[ang_size];
-  fastAtan2(resY, resX, Ang, ang_size, false);
+  hal::fastAtan2(resY, resX, Ang, ang_size, false);
 
   // Sort by the angles; angles are labeled by slices of 0.15 radian
-  const int slices = (int)(2.0 * CV_PI / 0.15f) + 1;  /* i.e. 42 */
+  const int slices = 42;
+  const float ang_step = (float)(2.0 * CV_PI / slices);
   uint8_t slice[slices + 1];
   uint8_t sorted_idx[ang_size];
-  quantized_counting_sort(Ang, ang_size, 0.15f, (float)(2.0 * CV_PI), sorted_idx, slice);
+  quantized_counting_sort(Ang, ang_size, ang_step, (float)(2.0 * CV_PI), sorted_idx, slice);
 
-  // Find the main angle by sliding a 7-slice-size window (1.05 = PI/3 approx) around the keypoint
+  // Find the main angle by sliding a window of 7-slice size(=PI/3) around the keypoint
   const int win = 7;
 
   float maxX = 0.0f, maxY = 0.0f;
@@ -1898,14 +1898,14 @@ void MLDB_Full_Descriptor_InvokerV2::MLDB_Fill_Values(float* values, int sample_
 void MLDB_Full_Descriptor_InvokerV2::MLDB_Binary_Comparisons(float* values, unsigned char* desc,
                                                            int count, int& dpos) const {
     int chan = options_.descriptor_channels;
-    int* ivalues = (int*) values;
+    int32_t * ivalues = (int32_t *) values;
     for(int i = 0; i < count * chan; i++) {
         ivalues[i] = CV_TOGGLE_FLT(ivalues[i]);
     }
 
     for(int pos = 0; pos < chan; pos++) {
         for (int i = 0; i < count; i++) {
-            int ival = ivalues[chan * i + pos];
+            int32_t ival = ivalues[chan * i + pos];
             for (int j = i + 1; j < count; j++) {
                 if (ival > ivalues[chan * j + pos]) {
                     desc[dpos >> 3] |= (1 << (dpos & 7));
@@ -1949,6 +1949,11 @@ void MLDB_Full_Descriptor_InvokerV2::Get_MLDB_Full_Descriptor(const KeyPoint& kp
       MLDB_Fill_Values(values, sample_step, kpt.class_id, xf, yf, co, si, scale);
       MLDB_Binary_Comparisons(values, desc, val_count, dpos);
   }
+
+  // Clear the uninitialized bits of the last byte
+  int remain = dpos % 8;
+  if (remain > 0)
+    desc[dpos >> 3] &= (0xff >> (8 - remain));
 }
 
 
