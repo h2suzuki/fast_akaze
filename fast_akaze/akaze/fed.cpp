@@ -117,7 +117,7 @@ int fed_tau_internalV2(const int& n, const float& scale, const float& tau_max,
 
   // Set up originally ordered tau vector
   for (int k = 0; k < n; ++k) {
-    float h = cosf((float)CV_PI * (2.0f * (float)k + 1.0f) * c);
+    float h = cos((float)CV_PI * (2.0f * k + 1.0f) * c);
 
     if (reordering) {
       tauh[k] = d / (h * h);
