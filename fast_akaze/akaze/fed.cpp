@@ -96,7 +96,8 @@ int fed_tau_by_cycle_timeV2(const float& t, const float& tau_max,
  */
 inline
 int fed_tau_internalV2(const int& n, const float& scale, const float& tau_max,
-                     const bool& reordering, std::vector<float> &tau) {
+                       const bool& reordering, std::vector<float> &tau)
+{
   float c = 0.0, d = 0.0;     // Time savers
   vector<float> tauh;    // Helper vector for unsorted taus
 
@@ -138,9 +139,8 @@ int fed_tau_internalV2(const int& n, const float& scale, const float& tau_max,
     // Get modulus for permutation
     prime = n + 1;
 
-    while (!fed_is_prime_internalV2(prime)) {
+    while (!fed_is_prime_internalV2(prime))
       prime++;
-    }
 
     // Perform permutation
     for (int k = 0, l = 0; l < n; ++k, ++l) {
