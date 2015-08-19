@@ -65,7 +65,7 @@ public:
   AKAZEFeaturesV2(const AKAZEOptionsV2& options);
 
   /// Getters and Setters
-  void setThreshold(double threshold_) { options_.dthreshold = (float)threshold_; };
+  void setThreshold(double threshold_) { options_.dthreshold = std::max((float)threshold_, options_.min_dthreshold); };
   double getThreshold() const { return options_.dthreshold; }
   void setDiffusivity(int diff_) { options_.diffusivity = diff_; }
   int getDiffusivity() const { return options_.diffusivity; }
