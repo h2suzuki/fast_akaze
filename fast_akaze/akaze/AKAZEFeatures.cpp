@@ -107,6 +107,10 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       step.sublevel = j;
       step.octave_ratio = (float)power;
 
+      // Descriptors cannot be computed for the points on the border
+      if (step.border * 2 + 1 >= level_width || step.border * 2 + 1 >= level_height)
+          goto out;  // The image becomes too small
+
       // Pre-calculate the derivative kernels
       compute_scharr_derivative_kernelsV2(step.DxKx, step.DxKy, 1, 0, step.sigma_size);
       compute_scharr_derivative_kernelsV2(step.DyKx, step.DyKy, 0, 1, step.sigma_size);
@@ -124,6 +128,7 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       break;
     }
   }
+out:
 
   // Allocate memory for workspaces
   lx_.create(options_.img_height, options_.img_width, CV_32FC1);
