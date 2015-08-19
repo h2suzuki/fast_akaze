@@ -1569,7 +1569,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
   // Get the information from the keypoint
   level = kpt.class_id;
   ratio = evolution_[level].octave_ratio;
-  scale = fRoundV2(0.5f*kpt.size / ratio);
+  scale = evolution_[level].sigma_size;
   yf = kpt.pt.y / ratio;
   xf = kpt.pt.x / ratio;
 
@@ -1882,7 +1882,7 @@ void MLDB_Full_Descriptor_InvokerV2::Get_MLDB_Full_Descriptor(const KeyPoint& kp
   const double size_mult[3] = {1, 2.0/3.0, 1.0/2.0};
 
   float ratio = evolution_[kpt.class_id].octave_ratio;
-  float scale = (float)fRoundV2(0.5f*kpt.size / ratio);
+  float scale = (float)(evolution_[kpt.class_id].sigma_size);
   float xf = kpt.pt.x / ratio;
   float yf = kpt.pt.y / ratio;
   float co = cos(kpt.angle);
@@ -1956,7 +1956,7 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
   const TEvolutionV2 & e = evolution_[kpt.class_id];
 
   // Get the information from the keypoint
-  const int scale = fRoundV2(0.5f*kpt.size / e.octave_ratio);
+  const int scale = e.sigma_size;
   const float yf = kpt.pt.y / e.octave_ratio;
   const float xf = kpt.pt.x / e.octave_ratio;
   const float co = cos(kpt.angle);
@@ -2030,7 +2030,7 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
   const TEvolutionV2 & e = evolution_[kpt.class_id];
 
   // Get the information from the keypoint
-  const int scale = fRoundV2(0.5f*kpt.size / e.octave_ratio);
+  const int scale = e.sigma_size;
   const float yf = kpt.pt.y / e.octave_ratio;
   const float xf = kpt.pt.x / e.octave_ratio;
 
