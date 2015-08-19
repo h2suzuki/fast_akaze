@@ -65,7 +65,7 @@ public:
   AKAZEFeaturesV2(const AKAZEOptionsV2& options);
 
   /// Getters and Setters
-  void setThreshold(double threshold_) { options_.dthreshold = (float)threshold_; };
+  void setThreshold(double threshold_) { options_.dthreshold = std::max((float)threshold_, options_.min_dthreshold); };
   double getThreshold() const { return options_.dthreshold; }
   void setDiffusivity(int diff_) { options_.diffusivity = diff_; }
   int getDiffusivity() const { return options_.diffusivity; }
@@ -77,7 +77,6 @@ public:
   void Feature_Detection(std::vector<cv::KeyPoint>& kpts);
   void Compute_Determinant_Hessian_Response(const int level);
   void Compute_Determinant_Hessian_Response_Single(const int level);
-  void Compute_Multiscale_Derivatives(void);
   void Find_Scale_Space_Extrema(std::vector<std::vector<cv::KeyPoint>>& kpts_aux);
   void Find_Scale_Space_Extrema_Single(std::vector<std::vector<cv::KeyPoint>>& kpts_aux);
   void Do_Subpixel_Refinement(std::vector<std::vector<cv::KeyPoint>>& kpts_aux, std::vector<cv::KeyPoint>& kpts);
