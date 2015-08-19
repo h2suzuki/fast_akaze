@@ -504,27 +504,15 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoin
   for (size_t i = 0; i < kpts_aux_.size(); i++)
     kpts_aux_[i].clear();
 
-  // Set maximum size
-  float smax = 0.0;
-  if (options_.descriptor == AKAZE::DESCRIPTOR_MLDB_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_MLDB) {
-    smax = 10.0f*sqrtf(2.0f);
-  }
-  else if (options_.descriptor == AKAZE::DESCRIPTOR_KAZE_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_KAZE) {
-    smax = 12.0f*sqrtf(2.0f);
-  }
-
   for (int i = 0; i < (int)evolution_.size(); i++) {
     const TEvolutionV2 &step = evolution_[i];
 
-    // Descriptors cannot be computed for the points on the border; exclude them first
-    const int border = fRoundV2(smax * step.sigma_size) + 1;
+    const float * prev = step.Ldet.ptr<float>(step.border - 1);
+    const float * curr = step.Ldet.ptr<float>(step.border    );
+    const float * next = step.Ldet.ptr<float>(step.border + 1);
 
-    const float * prev = step.Ldet.ptr<float>(border - 1);
-    const float * curr = step.Ldet.ptr<float>(border    );
-    const float * next = step.Ldet.ptr<float>(border + 1);
-
-    for (int y = border; y < step.Ldet.rows - border; y++) {
-      for (int x = border; x < step.Ldet.cols - border; x++) {
+    for (int y = step.border; y < step.Ldet.rows - step.border; y++) {
+      for (int x = step.border; x < step.Ldet.cols - step.border; x++) {
 
         const float value = curr[x];
 
@@ -608,15 +596,6 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
     return;
   }
 
-  // Set maximum size
-  float smax = 0.0;
-  if (options_.descriptor == AKAZE::DESCRIPTOR_MLDB_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_MLDB) {
-    smax = 10.0f*sqrtf(2.0f);
-  }
-  else if (options_.descriptor == AKAZE::DESCRIPTOR_KAZE_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_KAZE) {
-    smax = 12.0f*sqrtf(2.0f);
-  }
-
   for (int i = 0; i < (int)evolution_.size(); i++) {
     const TEvolutionV2 &step = evolution_[i];
     vector<cv::KeyPoint> &kpts = kpts_aux[i];
@@ -625,18 +604,15 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
     kpts_aux_[i].clear();
 
     auto mode = (i > 0? launch::async : launch::deferred);
-    tasklist_[0][i] = async(mode, [&step,&kpts,smax,i](const AKAZEOptionsV2 &opt)
+    tasklist_[0][i] = async(mode, [&step,&kpts,i](const AKAZEOptionsV2 &opt)
     {
 
-      // Descriptors cannot be computed for the points on the border; exclude them first
-      const int border = fRoundV2(smax * step.sigma_size) + 1;
+      const float * prev = step.Ldet.ptr<float>(step.border - 1);
+      const float * curr = step.Ldet.ptr<float>(step.border    );
+      const float * next = step.Ldet.ptr<float>(step.border + 1);
 
-      const float * prev = step.Ldet.ptr<float>(border - 1);
-      const float * curr = step.Ldet.ptr<float>(border    );
-      const float * next = step.Ldet.ptr<float>(border + 1);
-
-      for (int y = border; y < step.Ldet.rows - border; y++) {
-        for (int x = border; x < step.Ldet.cols - border; x++) {
+      for (int y = step.border; y < step.Ldet.rows - step.border; y++) {
+        for (int x = step.border; x < step.Ldet.cols - step.border; x++) {
 
           const float value = curr[x];
 
