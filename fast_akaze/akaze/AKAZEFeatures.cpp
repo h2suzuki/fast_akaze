@@ -73,6 +73,15 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
 
   CV_Assert(options_.img_height > 2 && options_.img_width > 2);  // The size of modgs_ must be positive
 
+  // Set maximum size of the area for the descriptor computation
+  float smax = 0.0;
+  if (options_.descriptor == AKAZE::DESCRIPTOR_MLDB_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_MLDB) {
+    smax = 10.0f*sqrtf(2.0f);
+  }
+  else if (options_.descriptor == AKAZE::DESCRIPTOR_KAZE_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_KAZE) {
+    smax = 12.0f*sqrtf(2.0f);
+  }
+
   // Allocate the dimension of the matrices for the evolution
   int level_height = options_.img_height;
   int level_width = options_.img_width;
@@ -92,6 +101,7 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       step.Lyy.create(level_height, level_width, CV_32FC1);
       step.esigma = options_.soffset * pow(2.f, (float)j / options_.nsublevels + i);
       step.sigma_size = fRoundV2(step.esigma * options_.derivative_factor / power);  // In fact sigma_size only depends on j
+      step.border = fRoundV2(smax * step.sigma_size) + 1;
       step.etime = 0.5f * (step.esigma * step.esigma);
       step.octave = i;
       step.sublevel = j;
