@@ -73,6 +73,15 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
 
   CV_Assert(options_.img_height > 2 && options_.img_width > 2);  // The size of modgs_ must be positive
 
+  // Set maximum size of the area for the descriptor computation
+  float smax = 0.0;
+  if (options_.descriptor == AKAZE::DESCRIPTOR_MLDB_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_MLDB) {
+    smax = 10.0f*sqrtf(2.0f);
+  }
+  else if (options_.descriptor == AKAZE::DESCRIPTOR_KAZE_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_KAZE) {
+    smax = 12.0f*sqrtf(2.0f);
+  }
+
   // Allocate the dimension of the matrices for the evolution
   int level_height = options_.img_height;
   int level_width = options_.img_width;
@@ -92,10 +101,15 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       step.Lyy.create(level_height, level_width, CV_32FC1);
       step.esigma = options_.soffset * pow(2.f, (float)j / options_.nsublevels + i);
       step.sigma_size = fRoundV2(step.esigma * options_.derivative_factor / power);  // In fact sigma_size only depends on j
+      step.border = fRoundV2(smax * step.sigma_size) + 1;
       step.etime = 0.5f * (step.esigma * step.esigma);
       step.octave = i;
       step.sublevel = j;
       step.octave_ratio = (float)power;
+
+      // Descriptors cannot be computed for the points on the border
+      if (step.border * 2 + 1 >= level_width || step.border * 2 + 1 >= level_height)
+          goto out;  // The image becomes too small
 
       // Pre-calculate the derivative kernels
       compute_scharr_derivative_kernelsV2(step.DxKx, step.DxKy, 1, 0, step.sigma_size);
@@ -114,6 +128,7 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       break;
     }
   }
+out:
 
   // Allocate memory for workspaces
   lx_.create(options_.img_height, options_.img_width, CV_32FC1);
@@ -494,27 +509,15 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoin
   for (size_t i = 0; i < kpts_aux_.size(); i++)
     kpts_aux_[i].clear();
 
-  // Set maximum size
-  float smax = 0.0;
-  if (options_.descriptor == AKAZE::DESCRIPTOR_MLDB_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_MLDB) {
-    smax = 10.0f*sqrtf(2.0f);
-  }
-  else if (options_.descriptor == AKAZE::DESCRIPTOR_KAZE_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_KAZE) {
-    smax = 12.0f*sqrtf(2.0f);
-  }
-
   for (int i = 0; i < (int)evolution_.size(); i++) {
     const TEvolutionV2 &step = evolution_[i];
 
-    // Descriptors cannot be computed for the points on the border; exclude them first
-    const int border = fRoundV2(smax * step.sigma_size) + 1;
+    const float * prev = step.Ldet.ptr<float>(step.border - 1);
+    const float * curr = step.Ldet.ptr<float>(step.border    );
+    const float * next = step.Ldet.ptr<float>(step.border + 1);
 
-    const float * prev = step.Ldet.ptr<float>(border - 1);
-    const float * curr = step.Ldet.ptr<float>(border    );
-    const float * next = step.Ldet.ptr<float>(border + 1);
-
-    for (int y = border; y < step.Ldet.rows - border; y++) {
-      for (int x = border; x < step.Ldet.cols - border; x++) {
+    for (int y = step.border; y < step.Ldet.rows - step.border; y++) {
+      for (int x = step.border; x < step.Ldet.cols - step.border; x++) {
 
         const float value = curr[x];
 
@@ -598,15 +601,6 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
     return;
   }
 
-  // Set maximum size
-  float smax = 0.0;
-  if (options_.descriptor == AKAZE::DESCRIPTOR_MLDB_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_MLDB) {
-    smax = 10.0f*sqrtf(2.0f);
-  }
-  else if (options_.descriptor == AKAZE::DESCRIPTOR_KAZE_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_KAZE) {
-    smax = 12.0f*sqrtf(2.0f);
-  }
-
   for (int i = 0; i < (int)evolution_.size(); i++) {
     const TEvolutionV2 &step = evolution_[i];
     vector<cv::KeyPoint> &kpts = kpts_aux[i];
@@ -615,18 +609,15 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
     kpts_aux_[i].clear();
 
     auto mode = (i > 0? launch::async : launch::deferred);
-    tasklist_[0][i] = async(mode, [&step,&kpts,smax,i](const AKAZEOptionsV2 &opt)
+    tasklist_[0][i] = async(mode, [&step,&kpts,i](const AKAZEOptionsV2 &opt)
     {
 
-      // Descriptors cannot be computed for the points on the border; exclude them first
-      const int border = fRoundV2(smax * step.sigma_size) + 1;
+      const float * prev = step.Ldet.ptr<float>(step.border - 1);
+      const float * curr = step.Ldet.ptr<float>(step.border    );
+      const float * next = step.Ldet.ptr<float>(step.border + 1);
 
-      const float * prev = step.Ldet.ptr<float>(border - 1);
-      const float * curr = step.Ldet.ptr<float>(border    );
-      const float * next = step.Ldet.ptr<float>(border + 1);
-
-      for (int y = border; y < step.Ldet.rows - border; y++) {
-        for (int x = border; x < step.Ldet.cols - border; x++) {
+      for (int y = step.border; y < step.Ldet.rows - step.border; y++) {
+        for (int x = step.border; x < step.Ldet.cols - step.border; x++) {
 
           const float value = curr[x];
 
