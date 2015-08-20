@@ -497,6 +497,28 @@ bool find_neighbor_point(const KeyPoint &p, const vector<KeyPoint> &v, const int
     return false;
 }
 
+inline
+bool find_neighbor_point_inv(const KeyPoint &p, const vector<KeyPoint> &v, const int offset, int &idx)
+{
+    const int sz = (int)v.size();
+
+    for (int i = offset; i < sz; i++) {
+
+        if (v[i].class_id == -1) // Skip a deleted point
+            continue;
+
+        float dx = p.pt.x - v[i].pt.x;
+        float dy = p.pt.y - v[i].pt.y;
+        if (dx * dx + dy * dy <= v[i].size * v[i].size) {
+            idx = i;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
 /* ************************************************************************* */
 /**
  * @brief This method finds extrema in the nonlinear scale space
@@ -574,9 +596,11 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoin
           continue;
 
       int idx = 0;
-      if (find_neighbor_point(pt, kpts_aux[i + 1], j + 1, idx))
+      while (find_neighbor_point_inv(pt, kpts_aux[i + 1], idx, idx)) {
         if (pt.response > kpts_aux[i + 1][idx].response)
           kpts_aux[i + 1][idx].class_id = -1;
+        ++idx;
+      }
     }
   }
 }
@@ -665,10 +689,12 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
       KeyPoint& pt = kpts_aux[i][j];
 
       int idx = 0;
-      if (find_neighbor_point(pt, kpts_aux[i - 1], 0, idx))
+      while (find_neighbor_point(pt, kpts_aux[i - 1], idx, idx)) {
         if (pt.response > kpts_aux[i - 1][idx].response)
           kpts_aux[i - 1][idx].class_id = -1;
         // else this pt may be pruned by the upper scale
+        ++idx;
+      }
     }
   }
 
@@ -681,9 +707,11 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
           continue;
 
       int idx = 0;
-      if (find_neighbor_point(pt, kpts_aux[i + 1], 0, idx))
+      while (find_neighbor_point_inv(pt, kpts_aux[i + 1], idx, idx)) {
         if (pt.response > kpts_aux[i + 1][idx].response)
           kpts_aux[i + 1][idx].class_id = -1;
+        ++idx;
+      }
     }
   }
 
