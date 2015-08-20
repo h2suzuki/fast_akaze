@@ -12,6 +12,9 @@ The software has been tested with:
 
 All changes are C++11 compliant, so the code is portable to the modern platforms.
 
+Especially after Support_CentOS7 branch is merged, gcc 4.8.3 and gcc 4.9.2 (Devtoolset-3)
+are tested to compile the code on CentOS7.1, using CMakeLists.txt.
+
 
 ## 1. Performance Improvement
 The optimization consists of a series of incremental changes --- topics --- to the original code.
@@ -27,8 +30,8 @@ The total speedup achieved:
 
 
 A bit of explanation:
- - R0 and R1 are the original code from OpenCV3
- - R2 to R7 are global changes under some topics  e.g. reducing memory copies.
+ - R0 and R1 are the original code of OpenCV3
+ - R2 to R7 involve global changes under some topics  e.g. reducing memory copies.
  - R8 is refactoring of heavy functions
  - R9 improves concurrency, in contrast that R2 to R8 focus on the speed of single thread
  - R11 optimizes convolution filter.
@@ -52,7 +55,7 @@ The optimization applies following well-known techniques:
  - Minimize cache traffic by accessing hot data timely
  - Reduce cv::Mat::ptr() by relying on the continuous memory layout of cv::Mat's data
  - Move invariants and conditionals out of the inner loops by simplifying control flow
- - Parallelize “big?Etasks --- task-based concurrency with less overhead
+ - Parallelize tasks --- task-based concurrency with minimum overhead
 
 Some techniques are excluded by intention:
 
@@ -64,6 +67,7 @@ Some techniques are excluded by intention:
 The project contains the test application --- a small program --- to measure
 the performance of Fast A-KAZE code, for anyone who wishes to reproduce the test result.
 
+
 ### 3.1 Getting started
 First, clone Fast A-KAZE repository and checkout the branch of concern.
 
@@ -71,8 +75,7 @@ First, clone Fast A-KAZE repository and checkout the branch of concern.
         $ cd fast_akaze
         $ git checkout R11
 
-Your build environment must have Visual Studio 2013 to run the application.
-Other platforms should be able to compile the source code without much modification, but that is not tested.
+Use Visual Studio 2013 to build and run the test application.
 
 
 ### 3.2 Dependencies
@@ -131,6 +134,8 @@ the video capturing performance instead of the performance of A-KAZE feature det
   2. Select the target configuration; either Debug or Release
   3. Build by F6
   3. Run the generated executable by F5 (with debugger) or Ctrl-F5 (without debugger).
+
+For recent versions, CMakeLists.txt is also available to compile the code with gcc.
 
 
 ### 3.4 Tweaking

@@ -40,6 +40,7 @@ struct TEvolutionV2
   int octave;               ///< Image octave
   int sublevel;             ///< Image sublevel in each octave
   int sigma_size;           ///< Scaling factor of esigma that is round(esigma * derivative_factor / power)
+  int border;               ///< Width of border where descriptors cannot be computed
   float octave_ratio;       ///< Scaling ratio of this octave. ratio = 2^octave
 };
 

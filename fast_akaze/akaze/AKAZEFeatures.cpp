@@ -73,6 +73,15 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
 
   CV_Assert(options_.img_height > 2 && options_.img_width > 2);  // The size of modgs_ must be positive
 
+  // Set maximum size of the area for the descriptor computation
+  float smax = 0.0;
+  if (options_.descriptor == AKAZE::DESCRIPTOR_MLDB_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_MLDB) {
+    smax = 10.0f*sqrtf(2.0f);
+  }
+  else if (options_.descriptor == AKAZE::DESCRIPTOR_KAZE_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_KAZE) {
+    smax = 12.0f*sqrtf(2.0f);
+  }
+
   // Allocate the dimension of the matrices for the evolution
   int level_height = options_.img_height;
   int level_width = options_.img_width;
@@ -90,12 +99,17 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       step.Lxx.create(level_height, level_width, CV_32FC1);
       step.Lxy.create(level_height, level_width, CV_32FC1);
       step.Lyy.create(level_height, level_width, CV_32FC1);
-      step.esigma = options_.soffset*pow(2.f, (float)j / options_.nsublevels + i);
+      step.esigma = options_.soffset * pow(2.f, (float)j / options_.nsublevels + i);
       step.sigma_size = fRoundV2(step.esigma * options_.derivative_factor / power);  // In fact sigma_size only depends on j
-      step.etime = 0.5f*(step.esigma*step.esigma);
+      step.border = fRoundV2(smax * step.sigma_size) + 1;
+      step.etime = 0.5f * (step.esigma * step.esigma);
       step.octave = i;
       step.sublevel = j;
       step.octave_ratio = (float)power;
+
+      // Descriptors cannot be computed for the points on the border
+      if (step.border * 2 + 1 >= level_width || step.border * 2 + 1 >= level_height)
+          goto out;  // The image becomes too small
 
       // Pre-calculate the derivative kernels
       compute_scharr_derivative_kernelsV2(step.DxKx, step.DxKy, 1, 0, step.sigma_size);
@@ -114,6 +128,7 @@ void AKAZEFeaturesV2::Allocate_Memory_Evolution(void) {
       break;
     }
   }
+out:
 
   // Allocate memory for workspaces
   lx_.create(options_.img_height, options_.img_width, CV_32FC1);
@@ -494,32 +509,20 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema_Single(std::vector<vector<KeyPoin
   for (size_t i = 0; i < kpts_aux_.size(); i++)
     kpts_aux_[i].clear();
 
-  // Set maximum size
-  float smax = 0.0;
-  if (options_.descriptor == AKAZE::DESCRIPTOR_MLDB_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_MLDB) {
-    smax = 10.0f*sqrtf(2.0f);
-  }
-  else if (options_.descriptor == AKAZE::DESCRIPTOR_KAZE_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_KAZE) {
-    smax = 12.0f*sqrtf(2.0f);
-  }
-
   for (int i = 0; i < (int)evolution_.size(); i++) {
     const TEvolutionV2 &step = evolution_[i];
 
-    // Descriptors cannot be computed for the points on the border; exclude them first
-    const int border = fRoundV2(smax * step.sigma_size) + 1;
+    const float * prev = step.Ldet.ptr<float>(step.border - 1);
+    const float * curr = step.Ldet.ptr<float>(step.border    );
+    const float * next = step.Ldet.ptr<float>(step.border + 1);
 
-    const float * prev = step.Ldet.ptr<float>(border - 1);
-    const float * curr = step.Ldet.ptr<float>(border    );
-    const float * next = step.Ldet.ptr<float>(border + 1);
-
-    for (int y = border; y < step.Ldet.rows - border; y++) {
-      for (int x = border; x < step.Ldet.cols - border; x++) {
+    for (int y = step.border; y < step.Ldet.rows - step.border; y++) {
+      for (int x = step.border; x < step.Ldet.cols - step.border; x++) {
 
         const float value = curr[x];
 
         // Filter the points with the detector threshold
-        if (value <= options_.dthreshold || value < options_.min_dthreshold)
+        if (value <= options_.dthreshold)
           continue;
         if (value <= curr[x-1] || value <= curr[x+1])
           continue;
@@ -594,15 +597,6 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
     return;
   }
 
-  // Set maximum size
-  float smax = 0.0;
-  if (options_.descriptor == AKAZE::DESCRIPTOR_MLDB_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_MLDB) {
-    smax = 10.0f*sqrtf(2.0f);
-  }
-  else if (options_.descriptor == AKAZE::DESCRIPTOR_KAZE_UPRIGHT || options_.descriptor == AKAZE::DESCRIPTOR_KAZE) {
-    smax = 12.0f*sqrtf(2.0f);
-  }
-
   for (int i = 0; i < (int)evolution_.size(); i++) {
     const TEvolutionV2 &step = evolution_[i];
     vector<cv::KeyPoint> &kpts = kpts_aux[i];
@@ -611,23 +605,20 @@ void AKAZEFeaturesV2::Find_Scale_Space_Extrema(std::vector<vector<KeyPoint>>& kp
     kpts_aux_[i].clear();
 
     auto mode = (i > 0? launch::async : launch::deferred);
-    tasklist_[0][i] = async(mode, [&step,&kpts,smax,i](const AKAZEOptionsV2 &opt)
+    tasklist_[0][i] = async(mode, [&step,&kpts,i](const AKAZEOptionsV2 &opt)
     {
 
-      // Descriptors cannot be computed for the points on the border; exclude them first
-      const int border = fRoundV2(smax * step.sigma_size) + 1;
+      const float * prev = step.Ldet.ptr<float>(step.border - 1);
+      const float * curr = step.Ldet.ptr<float>(step.border    );
+      const float * next = step.Ldet.ptr<float>(step.border + 1);
 
-      const float * prev = step.Ldet.ptr<float>(border - 1);
-      const float * curr = step.Ldet.ptr<float>(border    );
-      const float * next = step.Ldet.ptr<float>(border + 1);
-
-      for (int y = border; y < step.Ldet.rows - border; y++) {
-        for (int x = border; x < step.Ldet.cols - border; x++) {
+      for (int y = step.border; y < step.Ldet.rows - step.border; y++) {
+        for (int x = step.border; x < step.Ldet.cols - step.border; x++) {
 
           const float value = curr[x];
 
           // Filter the points with the detector threshold
-          if (value <= opt.dthreshold || value < opt.min_dthreshold)
+          if (value <= opt.dthreshold)
             continue;
           if (value <= curr[x-1] || value <= curr[x+1])
             continue;
@@ -740,8 +731,8 @@ void AKAZEFeaturesV2::Do_Subpixel_Refinement(std::vector<std::vector<KeyPoint>>&
       // Compute the Hessian
       float Dxx = ldet[ y     *cols + x + 1] + ldet[ y     *cols + x - 1] - 2.0f * ldet[y*cols + x];
       float Dyy = ldet[(y + 1)*cols + x    ] + ldet[(y - 1)*cols + x    ] - 2.0f * ldet[y*cols + x];
-      float Dxy = 0.25f * (ldet[(y + 1)*cols + x + 1] + ldet[(y - 1)*cols + x - 1]
-                         - ldet[(y - 1)*cols + x + 1] - ldet[(y + 1)*cols + x - 1]);
+      float Dxy = 0.25f * (ldet[(y + 1)*cols + x + 1] + ldet[(y - 1)*cols + x - 1] -
+                          ldet[(y - 1)*cols + x + 1] - ldet[(y + 1)*cols + x - 1]);
 
       // Solve the linear system
       Matx22f A{ Dxx, Dxy,
@@ -1544,7 +1535,7 @@ void Upright_MLDB_Full_Descriptor_InvokerV2::Get_Upright_MLDB_Full_Descriptor(co
   // Get the information from the keypoint
   level = kpt.class_id;
   ratio = evolution_[level].octave_ratio;
-  scale = fRoundV2(0.5f*kpt.size / ratio);
+  scale = evolution_[level].sigma_size;
   yf = kpt.pt.y / ratio;
   xf = kpt.pt.x / ratio;
 
@@ -1857,7 +1848,7 @@ void MLDB_Full_Descriptor_InvokerV2::Get_MLDB_Full_Descriptor(const KeyPoint& kp
   const double size_mult[3] = {1, 2.0/3.0, 1.0/2.0};
 
   float ratio = evolution_[kpt.class_id].octave_ratio;
-  float scale = (float)fRoundV2(0.5f*kpt.size / ratio);
+  float scale = (float)(evolution_[kpt.class_id].sigma_size);
   float xf = kpt.pt.x / ratio;
   float yf = kpt.pt.y / ratio;
   float co = cos(kpt.angle);
@@ -1931,7 +1922,7 @@ void MLDB_Descriptor_Subset_InvokerV2::Get_MLDB_Descriptor_Subset(const KeyPoint
   const TEvolutionV2 & e = evolution_[kpt.class_id];
 
   // Get the information from the keypoint
-  const int scale = fRoundV2(0.5f*kpt.size / e.octave_ratio);
+  const int scale = e.sigma_size;
   const float yf = kpt.pt.y / e.octave_ratio;
   const float xf = kpt.pt.x / e.octave_ratio;
   const float co = cos(kpt.angle);
@@ -2005,7 +1996,7 @@ void Upright_MLDB_Descriptor_Subset_InvokerV2::Get_Upright_MLDB_Descriptor_Subse
   const TEvolutionV2 & e = evolution_[kpt.class_id];
 
   // Get the information from the keypoint
-  const int scale = fRoundV2(0.5f*kpt.size / e.octave_ratio);
+  const int scale = e.sigma_size;
   const float yf = kpt.pt.y / e.octave_ratio;
   const float xf = kpt.pt.x / e.octave_ratio;
 
