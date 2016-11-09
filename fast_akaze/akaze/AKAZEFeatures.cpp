@@ -12,6 +12,7 @@
 #include "utils.h"
 
 #include <opencv2/core.hpp>
+#include <opencv2/core/hal/hal.hpp>
 #include <opencv2/imgproc.hpp>
 
 #include <cstring>
