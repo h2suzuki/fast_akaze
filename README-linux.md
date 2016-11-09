@@ -38,8 +38,8 @@ possible customization.
 The above commands usually install OpenCV3.1 under /usr/local.
 
 ## 4. Build Fast A-KAZE
-Fast A-KAZE comes with a simple CMakeLists.txt to compile an OpenCV3.1 sample program.
-So the compilation is straight forward.
+Fast A-KAZE comes with a simple CMakeLists.txt to compile an OpenCV3.1 program.
+So the compilation of our sample program is straight forward.
 
     $ git clone https://github.com/h2suzuki/fast_akaze.git
     $ cd fast_akaze/fast_akaze/
