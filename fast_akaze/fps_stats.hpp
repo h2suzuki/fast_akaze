@@ -63,7 +63,7 @@ public:
 
             // Print the statistics
             if (verbose)
-                printf("%s: Last %0.3fms %0.3ffps | Int %dms %ldfr %0.3ffps | EMA %0.3ffps\n",
+                printf("%s: Last %0.3fms %0.3ffps | Int %ldms %dfr %0.3ffps | EMA %0.3ffps\n",
                         _header.c_str(),
                         0.001f * duration_cast<microseconds>(delta_last).count(),
                         _fps_last,
