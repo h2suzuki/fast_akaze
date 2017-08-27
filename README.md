@@ -1,4 +1,5 @@
 
+**Note that some part of this repository code has been integrated to OpenCV 3.3.0 by [GSOC] Speeding-up AKAZE, an excellent work by Jiri Horner (@hrnr), which also includes his new OCL code for GPU.**
 
 # Fast A-KAZE
 This project optimizes Accelerated-KAZE feature detector and descriptor, written
